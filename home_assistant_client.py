@@ -1,5 +1,4 @@
 import paho.mqtt.client as mqtt
-import RPi.GPIO as GPIO
 import time
 import logging
 from ha_mqtt_discoverable import Settings, DeviceInfo
