@@ -1,0 +1,11 @@
+name: "Magic Mirror"
+manufacturer: "Raspberry Pi"
+model: "4 Model B"
+
+log_level: "INFO"
+
+enable_ha_mqtt: true
+retain: true
+
+
+
