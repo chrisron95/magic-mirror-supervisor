@@ -118,8 +118,8 @@ class HomeAssistantClient:
             sensor_entity = Sensor(sensor_settings)
             sensor_entity.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
-            get_state = getattr(self, sensor['state'])
-            state = get_state()
+            # get_state = getattr(self, sensor['state'])
+            state = self.sensor['state']()
             if state is not None:
                 sensor_entity.set_state(state)
             else:
