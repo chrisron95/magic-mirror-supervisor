@@ -119,7 +119,19 @@ class HomeAssistantClient:
             sensor_entity.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
             # get_state = getattr(self, sensor['state'])
-            state = self.sensor['state']()
+            state_method = sensor['state']
+            try:
+                module_name, method_name = state_method.rsplit('.', 1)
+                module = __import__(module_name, fromlist=[method_name])
+                method = getattr(module, method_name, None)
+                if callable(method):
+                    state = method()
+                else:
+                    logger.warning(f"State method {sensor['state']} not found or not callable for sensor {sensor['unique_id']}")
+                    state = None
+            except (ImportError, AttributeError, ValueError) as e:
+                logger.error(f"Error resolving state method {sensor['state']} for sensor {sensor['unique_id']}: {e}")
+                state = None
             if state is not None:
                 sensor_entity.set_state(state)
             else:
