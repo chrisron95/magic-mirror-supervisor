@@ -131,15 +131,16 @@ class HomeAssistantClient:
             state = None
             if state_method:
                 try:
-                    # Resolve dotted paths like "module.method"
-                    module_name, method_name = state_method.rsplit('.', 1)
-                    module = __import__(module_name, fromlist=[method_name])
-                    method = getattr(module, method_name, None)
-                    if callable(method):
-                        state = method()
+                    # Resolve dotted paths like "utils.get_ip_address"
+                    parts = state_method.split('.')
+                    obj = self
+                    for part in parts:  # Traverse through the parts to resolve the object
+                        obj = getattr(obj, part)
+                    if callable(obj):
+                        state = obj()  # Call the resolved method
                     else:
-                        logger.warning(f"State method {state_method} not callable for sensor {sensor['unique_id']}")
-                except (ImportError, AttributeError, ValueError) as e:
+                        logger.warning(f"State method {state_method} is not callable for sensor {sensor['unique_id']}")
+                except AttributeError as e:
                     logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
             
             # Set the sensor state or log a warning if state is None
