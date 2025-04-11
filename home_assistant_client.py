@@ -216,6 +216,8 @@ class HomeAssistantClient:
             logger.warning(f"Switch with unique_id {unique_id} not found.")
 
     def cleanup(self):
+        logger.info("Cleaning up Home Assistant client")
         self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "offline", retain=True)
         self.client.loop_stop()
         self.client.disconnect()
+        logger.info("Home Assistant client cleaned up")
