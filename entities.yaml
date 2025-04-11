@@ -1,0 +1,43 @@
+# binary_sensors:
+  # - name: "TV Power"
+  #   unique_id: "tv_power"
+  #   function: "tv.check_power_status"
+
+sensors:
+  - name: "IP Address"
+    unique_id: "ip_address"
+    state: "utils.get_ip_address"
+
+  - name: "Disk Usage"
+    unique_id: "disk_usage"
+    state: "utils.get_disk_usage"
+
+buttons:
+  - name: "Reboot"
+    unique_id: "reboot"
+    callback: "utils.reboot"
+
+  - name: "Shutdown"
+    unique_id: "shutdown"
+    callback: "utils.shutdown"
+
+  - name: "Update"
+    unique_id: "update"
+    callback: "utils.update"
+
+  - name: "TV Power On"
+    unique_id: "tv_power_on"
+    callback: "tv.power_on"
+
+  - name: "TV Standby"
+    unique_id: "tv_standby"
+    callback: "tv.standby"
+
+switches:
+  - name: "TV Power"
+    unique_id: "tv_power"
+    on_callback: "tv.power_on"
+    off_callback: "tv.standby"
+    state: "tv.check_power_status"
+
+# selects:
