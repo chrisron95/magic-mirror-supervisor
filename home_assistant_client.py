@@ -145,7 +145,7 @@ class HomeAssistantClient:
                 unique_id=switch['unique_id']
             )
             switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info)
-            switch_entity = Switch(switch_settings, self.create_button_callback(switch['on_callback'], switch['off_callback']))
+            switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
             switch_entity.write_config()
             setattr(self, f"{switch['unique_id']}_entity", switch_entity)
             get_state = getattr(self, switch['state'])
