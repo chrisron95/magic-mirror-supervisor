@@ -10,11 +10,11 @@ class Utils:
         self.supervisor = supervisor
         self.tv = tv
         global ip_address
-        ip_address = Utils.get_ip_address()
+        ip_address = self.get_ip_address()
         logger.info(f"IP address: {ip_address}")
 
         global disk_usage
-        disk_usage = Utils.get_disk_usage()
+        disk_usage = self.get_disk_usage()
         logger.info(f"Disk usage: {disk_usage}%")
 
     def get_ip_address(self):
