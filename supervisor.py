@@ -3,10 +3,12 @@ import logging
 import os
 
 class Supervisor:
-    def __init__(self, config, ha_client, sounds):
+    def __init__(self, config, ha_client, sounds, tv, utils):
         self.config = config
         self.ha_client = ha_client
         self.sounds = sounds
+        self.tv = tv
+        self.utils = utils
 
     def notify(self, title, message):
         """Send a notification to the desktop."""

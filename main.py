@@ -69,13 +69,24 @@ def main():
     logger.info("TV initialized")
 
     global supervisor
-    supervisor = Supervisor(config, ha_client, sounds)
+    supervisor = Supervisor(
+        config=config,
+        ha_client=ha_client,
+        sounds=sounds,
+        tv=tv,
+        utils=None
+    )
     ha_client.supervisor = supervisor  # Set supervisor in HA client
     logger.info("Supervisor initialized")
 
     global utils
-    utils = Utils(config, supervisor, tv)
+    utils = Utils(
+        config=config,
+        supervisor=supervisor,
+        tv=tv
+    )
     ha_client.utils = utils  # Set utils in HA client
+    supervisor.utils = utils  # Set utils in supervisor
     logger.info("Utils initialized")
 
     # Initialize Buttons with Logging
