@@ -75,20 +75,46 @@ class TV:
         if self.is_on:
             logging.info("Power-on request ignored: TV is already ON.")
             return
-        
+
         logging.info("Sending power-on command to TV...")
         subprocess.run(f"echo 'on {self.address}' | cec-client -s -d 1", shell=True)
-        self.check_power_status()
+
+        # Poll the power status until the TV is ON or timeout is reached
+        timeout = 60  # 1 minute
+        interval = 5
+        elapsed = 0
+
+        while elapsed < timeout:
+            time.sleep(interval)
+            elapsed += interval
+            if self.check_power_status():
+                logging.info("TV successfully powered ON.")
+                return
+
+        logging.error("Failed to power ON the TV within the timeout period.")
 
     def standby(self):
-        """Put the TV into standby mode."""
+        """Put the TV into standby mode, then confirm it actually turned off."""
         if not self.is_on:
             logging.info("Standby request ignored: TV is already OFF.")
             return
-        
+
         logging.info("Turning off TV (standby mode)...")
         subprocess.run(f"echo 'standby {self.address}' | cec-client -s -d 1", shell=True)
-        self.check_power_status()
+
+        # Poll the power status until the TV is OFF or timeout is reached
+        timeout = 60  # 1 minute
+        interval = 5
+        elapsed = 0
+
+        while elapsed < timeout:
+            time.sleep(interval)
+            elapsed += interval
+            if not self.check_power_status():
+                logging.info("TV successfully entered standby mode.")
+                return
+
+        logging.error("Failed to put the TV into standby mode within the timeout period.")
 
     def get_active_source(self):
         """Retrieve and track the currently active HDMI input source."""
