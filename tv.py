@@ -75,10 +75,6 @@ class TV:
         if self.is_on:
             logging.info("Power-on request ignored: TV is already ON.")
             return
-        
-        # Update the Home Assistant switch with the power status
-        if self.ha_client:
-            self.ha_client.update_switch("tv_power", "ON")
 
         logging.info("Sending power-on command to TV...")
         subprocess.run(f"echo 'on {self.address}' | cec-client -s -d 1", shell=True)
@@ -102,10 +98,6 @@ class TV:
         if not self.is_on:
             logging.info("Standby request ignored: TV is already OFF.")
             return
-        
-        # Update the Home Assistant switch with the power status
-        if self.ha_client:
-            self.ha_client.update_switch("tv_power", "OFF")
 
         logging.info("Turning off TV (standby mode)...")
         subprocess.run(f"echo 'standby {self.address}' | cec-client -s -d 1", shell=True)
