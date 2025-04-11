@@ -66,14 +66,17 @@ def main():
     global tv
     tv = TV("0.0.0.0")
     ha_client.tv = tv  # Set TV in HA client
+    logger.info("TV initialized")
 
     global supervisor
     supervisor = Supervisor(config, ha_client, sounds)
     ha_client.supervisor = supervisor  # Set supervisor in HA client
+    logger.info("Supervisor initialized")
 
     global utils
     utils = Utils(config, supervisor, tv)
     ha_client.utils = utils  # Set utils in HA client
+    logger.info("Utils initialized")
 
     # Initialize Buttons with Logging
     ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), supervisor.shutdown()))
