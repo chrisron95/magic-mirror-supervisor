@@ -137,7 +137,8 @@ class HomeAssistantClient:
                     for part in parts[:-1]:  # Traverse to the parent object
                         obj = getattr(obj, part)
                     method = getattr(obj, parts[-1])  # Get the final method
-                    method()  # Call the resolved method
+                    if callable(method):
+                        state = method()  # Call the resolved method
                 except AttributeError as e:
                     logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
             
