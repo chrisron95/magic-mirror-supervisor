@@ -134,12 +134,10 @@ class HomeAssistantClient:
                     # Resolve dotted paths like "utils.get_ip_address"
                     parts = state_method.split('.')
                     obj = self
-                    for part in parts:  # Traverse through the parts to resolve the object
+                    for part in parts[:-1]:  # Traverse to the parent object
                         obj = getattr(obj, part)
-                    if callable(obj):
-                        state = obj()  # Call the resolved method
-                    else:
-                        logger.warning(f"State method {state_method} is not callable for sensor {sensor['unique_id']}")
+                    method = getattr(obj, parts[-1])  # Get the final method
+                    method()  # Call the resolved method
                 except AttributeError as e:
                     logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
             
