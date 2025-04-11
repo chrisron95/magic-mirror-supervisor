@@ -42,7 +42,7 @@ buttons:
     callback: "supervisor.start_kiosk_app"
 
   - name: "Stop All Apps"
-    unique_id: "start_home_assistant"
+    unique_id: "stop_all_apps"
     callback: "supervisor.stop_all_apps"
 
 switches:
