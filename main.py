@@ -1,11 +1,15 @@
-import subprocess
 import logging
 import os
+import sys
 import yaml
+import pygame
+import signal
 from signal import pause
 from tv import TV
 from buttons import ButtonHandler
-from utils import get_ip_address
+from home_assistant_client import HomeAssistantClient
+from supervisor import Supervisor
+from utils import Utils
 
 # Load configuration from YAML files
 with open('config.yaml', 'r') as config_file:
@@ -24,64 +28,59 @@ LOG_LEVEL = getattr(logging, config['log_level'].upper(), logging.DEBUG)
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-def notify(title, message):
-    """Send a notification to the desktop."""
-    logging.info(f"Notification: {title} - {message}")
-    subprocess.run(["notify-send", title, message, "--urgency=low"])
+# Initialize pygame for audio playback
+pygame.mixer.init()
+sounds = {
+    "test": pygame.mixer.Sound(os.path.join('sounds', "oh-finally-355.mp3"))
+}
 
-def switch_apps():
-    """Switch between Magic Mirror and Kiosk applications."""
-    services = {"kiosk": "magicmirror", "magicmirror": "kiosk"}
+def signal_handler(sig, frame):
+    logger.info('Signal received, exiting...')
+    HomeAssistantClient.cleanup()
+    sys.exit(0)
+
+def main():
+    """Main function to initialize the system."""
+    logger.info("Initializing system...")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     
-    active_service = next((s for s in services if subprocess.run(f"systemctl is-active --quiet {s}", shell=True).returncode == 0), None)
-    new_service = services.get(active_service, "magicmirror")
 
-    logging.info(f"Switching to {new_service.capitalize()}")
-    notify("App Switching...", f"Starting {new_service.capitalize()}")
+    ha_client = HomeAssistantClient(
+        broker=secrets['mqtt_broker'],
+        port=secrets['mqtt_port'],
+        username=secrets['mqtt_username'],
+        password=secrets['mqtt_password'],
+        token=secrets['ha_api_token'],
+        api_url=secrets['ha_api_url'],
+        config=config,
+        entities=entities,
+        supervisor=None,  # We'll set this after creating phone_controller
+        tv=None,  # We'll set this after creating TV
+        utils=None  # We'll set this after creating utils
+    )
 
-    if active_service:
-        subprocess.run(f"sudo systemctl stop {active_service}.service", shell=True)
+    # Initialize TV
+    global tv
+    tv = TV("0.0.0.0")
+    ha_client.tv = tv  # Set TV in HA client
 
-    subprocess.run(f"sudo systemctl start {new_service}.service", shell=True)
+    global supervisor
+    supervisor = Supervisor(config, ha_client, sounds)
+    ha_client.supervisor = supervisor  # Set supervisor in HA client
 
-def app_selector():
-    """Choose between Magic Mirror or Kiosk application."""
-    process = subprocess.run([
-        "notify-send", "Smart Mirror", "Choose an app to open:",
-        "--action=mirror=Magic Mirror",  # Button 1
-        "--action=kiosk=Home Assistant"   # Button 2
-    ], capture_output=True, text=True)
+    global utils
+    utils = Utils(config, supervisor, tv)
+    ha_client.utils = utils  # Set utils in HA client
 
-    response = process.stdout.strip()
-    logging.info(f"Starting {response.capitalize()}")
-    notify("App Starting...", f"Starting {response.capitalize()}")
-    if response == "mirror":
-        os.system("sudo systemctl stop kiosk.service")
-        os.system("sudo systemctl start magicmirror.service")
-    elif response == "kiosk":
-        os.system("sudo systemctl stop magicmirror.service")
-        os.system("sudo systemctl start kiosk.service")
+    # Initialize Buttons with Logging
+    ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), supervisor.shutdown()))
+    ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
+    ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
 
-def stop_all_apps():
-    """Stop both Magic Mirror and Kiosk services."""
-    notify("Button Handler", "All applications stopped")
-    for service in ["magicmirror", "kiosk"]:
-        subprocess.run(f"sudo systemctl stop {service}.service", shell=True)
+    pause()
 
-def shutdown():
-    """Shut down the system."""
-    logging.warning("Shutting down the system!")
-    subprocess.run(["sudo", "shutdown", "-h", "now"])
-
-def sample():
-    notify("Hello", "You found the secret button")
-
-# Initialize TV
-tv = TV("0.0.0.0")
-
-# Initialize Buttons with Logging
-ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), shutdown()))
-ButtonHandler("Button 2", 24, press_callback=switch_apps, hold_callback=app_selector)
-ButtonHandler("Button 3", 23, press_callback=stop_all_apps, hold_callback=tv.rotate_input)
-
-pause()
+if __name__ == "__main__":
+    main()
