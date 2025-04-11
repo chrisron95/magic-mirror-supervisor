@@ -115,13 +115,13 @@ class HomeAssistantClient:
                 unit_of_measurement=sensor['unit_of_measurement'] if 'unit_of_measurement' in sensor else None
             )
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info)
-            sensor = Sensor(sensor_settings)
-            sensor.write_config()
-            setattr(self, f"{sensor['unique_id']}_entity", sensor)
+            sensor_entity = Sensor(sensor_settings)
+            sensor_entity.write_config()
+            setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
             get_state = getattr(self, sensor['state'])
             state = get_state()
             if state is not None:
-                sensor.set_state(state)
+                sensor_entity.set_state(state)
             else:
                 logger.warning(f"Sensor state is None for {sensor['unique_id']}")
 
