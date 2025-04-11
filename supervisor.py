@@ -54,10 +54,5 @@ class Supervisor:
         for service in ["magicmirror", "kiosk"]:
             subprocess.run(f"sudo systemctl stop {service}.service", shell=True)
 
-    def shutdown(self):
-        """Shut down the system."""
-        logging.warning("Shutting down the system!")
-        subprocess.run(["sudo", "shutdown", "-h", "now"])
-
     def sample(self):
         self.notify("Hello", "You found the secret button")
