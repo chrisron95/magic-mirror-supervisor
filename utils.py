@@ -17,8 +17,7 @@ class Utils:
         disk_usage = Utils.get_disk_usage()
         logger.info(f"Disk usage: {disk_usage}%")
 
-    @staticmethod
-    def get_ip_address():
+    def get_ip_address(self):
         return psutil.net_if_addrs()['wlan0'][0].address
 
     @staticmethod
