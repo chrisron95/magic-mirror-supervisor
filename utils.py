@@ -5,7 +5,7 @@ import os
 logger = logging.getLogger(__name__)
 
 class Utils:
-    def __init__(self, config, supervisor, tv):
+    def __init__(self, config, supervisor, tv, button1, button2, button3):
         self.config = config
         self.supervisor = supervisor
         self.tv = tv
@@ -52,3 +52,11 @@ class Utils:
         logger.warning("Shutting down the system!")
         self.tv.standby()
         os.system("sudo shutdown -h now")
+
+    def cleanup_gpios(self):
+        """Cleanup GPIOs."""
+        logger.info("Cleaning up GPIOs")
+        self.button1.cleanup()
+        self.button2.cleanup()
+        self.button3.cleanup()
+        logger.info("GPIOs cleaned up successfully!")

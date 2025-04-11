@@ -26,3 +26,8 @@ class ButtonHandler:
             self.was_held = True  # Mark as held to suppress single press
             callback()
         return wrapped
+    
+    def cleanup(self):
+        """Cleanup the button handler."""
+        self.button.close()
+        logging.info(f"{self.name} button handler cleaned up.")

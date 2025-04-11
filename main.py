@@ -36,7 +36,8 @@ sounds = {
 
 def signal_handler(sig, frame):
     logger.info('Signal received, exiting...')
-    HomeAssistantClient.cleanup()
+    ha_client.cleanup()
+    utils.cleanup_gpios()
     sys.exit(0)
 
 def main():
@@ -47,7 +48,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     
-
+    global ha_client
     ha_client = HomeAssistantClient(
         broker=secrets['mqtt_broker'],
         port=secrets['mqtt_port'],
@@ -83,16 +84,24 @@ def main():
     utils = Utils(
         config=config,
         supervisor=supervisor,
-        tv=tv
+        tv=tv,
+        button1=None,
+        button2=None,
+        button3=None
     )
     ha_client.utils = utils  # Set utils in HA client
     supervisor.utils = utils  # Set utils in supervisor
     logger.info("Utils initialized")
 
     # Initialize Buttons with Logging
-    ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), supervisor.shutdown()))
-    ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
-    ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
+    global button1, button2, button3
+    button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
+    button2 = ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
+    button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
+    utils.button1 = button1
+    utils.button2 = button2
+    utils.button3 = button3
+    logger.info("Buttons initialized")
 
     pause()
 
