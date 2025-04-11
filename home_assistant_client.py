@@ -117,32 +117,37 @@ class HomeAssistantClient:
                 name=sensor['name'],
                 device=self.device_info,
                 unique_id=sensor['unique_id'],
-                entity_category=sensor['entity_category'] if 'entity_category' in sensor else None,
-                device_class=sensor['device_class'] if 'device_class' in sensor else None,
-                unit_of_measurement=sensor['unit_of_measurement'] if 'unit_of_measurement' in sensor else None
+                entity_category=sensor.get('entity_category'),
+                device_class=sensor.get('device_class'),
+                unit_of_measurement=sensor.get('unit_of_measurement')
             )
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info)
             sensor_entity = Sensor(sensor_settings)
             sensor_entity.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
-            # get_state = getattr(self, sensor['state'])
-            state_method = sensor['state']
-            try:
-                module_name, method_name = state_method.rsplit('.', 1)
-                module = __import__(module_name, fromlist=[method_name])
-                method = getattr(module, method_name, None)
-                if callable(method):
-                    state = method()
-                else:
-                    logger.warning(f"State method {sensor['state']} not found or not callable for sensor {sensor['unique_id']}")
-                    state = None
-            except (ImportError, AttributeError, ValueError) as e:
-                logger.error(f"Error resolving state method {sensor['state']} for sensor {sensor['unique_id']}: {e}")
-                state = None
+
+            # Resolve and set the initial state
+            state_method = sensor.get('state')
+            state = None
+            if state_method:
+                try:
+                    # Resolve dotted paths like "module.method"
+                    module_name, method_name = state_method.rsplit('.', 1)
+                    module = __import__(module_name, fromlist=[method_name])
+                    method = getattr(module, method_name, None)
+                    if callable(method):
+                        state = method()
+                    else:
+                        logger.warning(f"State method {state_method} not callable for sensor {sensor['unique_id']}")
+                except (ImportError, AttributeError, ValueError) as e:
+                    logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
+            
+            # Set the sensor state or log a warning if state is None
             if state is not None:
                 sensor_entity.set_state(state)
+                logger.info(f"Sensor {sensor['unique_id']} initialized with state: {state}")
             else:
-                logger.warning(f"Sensor state is None for {sensor['unique_id']}")
+                logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved")
 
     def setup_switches(self):
         for switch in self.entities['switches']:
