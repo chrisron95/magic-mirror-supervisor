@@ -33,6 +33,18 @@ buttons:
     unique_id: "tv_standby"
     callback: "tv.standby"
 
+  - name: "Start MagicMirror App"
+    unique_id: "start_magicmirror"
+    callback: "supervisor.start_magic_mirror_app"
+
+  - name: "Start Home Assistant"
+    unique_id: "start_home_assistant"
+    callback: "supervisor.start_kiosk_app"
+
+  - name: "Stop All Apps"
+    unique_id: "start_home_assistant"
+    callback: "supervisor.stop_all_apps"
+
 switches:
   - name: "TV Power"
     unique_id: "tv_power"

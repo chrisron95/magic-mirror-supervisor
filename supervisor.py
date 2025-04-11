@@ -15,7 +15,7 @@ class Supervisor:
         logging.info(f"Notification: {title} - {message}")
         subprocess.run(["notify-send", title, message, "--urgency=low"])
 
-    def switch_apps(self, ):
+    def switch_apps(self):
         """Switch between Magic Mirror and Kiosk applications."""
         services = {"kiosk": "magicmirror", "magicmirror": "kiosk"}
         
@@ -42,11 +42,15 @@ class Supervisor:
         logging.info(f"Starting {response.capitalize()}")
         self.notify("App Starting...", f"Starting {response.capitalize()}")
         if response == "mirror":
-            os.system("sudo systemctl stop kiosk.service")
-            os.system("sudo systemctl start magicmirror.service")
+            os.system("sudo systemctl stop kiosk.service && sudo systemctl start magicmirror.service")
         elif response == "kiosk":
-            os.system("sudo systemctl stop magicmirror.service")
-            os.system("sudo systemctl start kiosk.service")
+            os.system("sudo systemctl stop magicmirror.service && sudo systemctl start kiosk.service")
+
+    def start_magic_mirror_app(self):
+        os.system("sudo systemctl stop kiosk.service && sudo systemctl start magicmirror.service")
+
+    def start_kiosk_app(self):
+        os.system("sudo systemctl stop magicmirror.service && sudo systemctl start kiosk.service")
 
     def stop_all_apps(self):
         """Stop both Magic Mirror and Kiosk services."""
