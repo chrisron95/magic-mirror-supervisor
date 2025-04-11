@@ -178,11 +178,21 @@ class HomeAssistantClient:
             payload = message.payload.decode()
             try:
                 if payload == "ON":
-                    method = getattr(self.supervisor, on_callback)
-                    method()
+                    # Resolve dotted paths for the ON callback
+                    parts = on_callback.split('.')
+                    obj = self
+                    for part in parts[:-1]:  # Traverse to the parent object
+                        obj = getattr(obj, part)
+                    method = getattr(obj, parts[-1])  # Get the final method
+                    method()  # Call the resolved method
                 elif payload == "OFF":
-                    method = getattr(self.supervisor, off_callback)
-                    method()
+                    # Resolve dotted paths for the OFF callback
+                    parts = off_callback.split('.')
+                    obj = self
+                    for part in parts[:-1]:  # Traverse to the parent object
+                        obj = getattr(obj, part)
+                    method = getattr(obj, parts[-1])  # Get the final method
+                    method()  # Call the resolved method
             except AttributeError as e:
                 logger.error(f"Callback method not found: {e}")
         return callback
