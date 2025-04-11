@@ -159,19 +159,11 @@ class HomeAssistantClient:
 
     def on_connect(self, client, userdata, flags, rc):
         logger.info(f"Connected to MQTT broker with result code {rc}")
-        if self.config.get('retain', False):
-            self.subscribe_to_retained_values()
         self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "online", retain=True)
 
     def on_message(self, client, userdata, message):
         topic = message.topic.split("/")[-1]
         self.retained_values[topic] = message.payload.decode()
-
-    def subscribe_to_retained_values(self):
-        for number in self.entities['number_entities']:
-            self.client.subscribe(f"hmd/number/{self.config['name'].lower().replace(' ', '_')}/{number['unique_id']}/state")
-        # Give some time to receive retained messages
-        time.sleep(2)  # Adjust this delay if needed
 
     def get_retained_value(self, unique_id):
         return self.retained_values.get(unique_id, None)
@@ -194,5 +186,6 @@ class HomeAssistantClient:
             logger.warning(f"Switch with unique_id {unique_id} not found.")
 
     def cleanup(self):
+        self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "offline", retain=True)
         self.client.loop_stop()
         self.client.disconnect()
