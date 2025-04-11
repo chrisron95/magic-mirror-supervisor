@@ -7,7 +7,6 @@ class Supervisor:
         self.config = config
         self.ha_client = ha_client
         self.sounds = sounds
-        self.setup_logging()
 
     def notify(self, title, message):
         """Send a notification to the desktop."""
