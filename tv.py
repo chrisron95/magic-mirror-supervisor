@@ -5,8 +5,9 @@ import threading
 import logging
 
 class TV:
-    def __init__(self, address):
+    def __init__(self, address, ha_client):
         self.address = address
+        self.ha_client = ha_client
         self.is_on = self.check_power_status()
         logging.info(f"TV initialized. Power: {'ON' if self.is_on else 'OFF'}")
 
@@ -30,7 +31,8 @@ class TV:
             self.internal_input = detected_input  # Save valid input
 
     def check_power_status(self):
-        """Check if the TV is on or in standby."""
+        """Check if the TV is on or in standby and update Home Assistant."""
+        power_status = False  # Default to False (TV is off)
         try:
             output = subprocess.run(
                 f"echo 'pow {self.address}' | cec-client -s -d 1",
@@ -40,15 +42,24 @@ class TV:
             logging.info(f"Checking TV power status... Raw output: {output.strip()}")
 
             if "power status: on" in output:
-                return True
+                power_status = True
             elif "power status: standby" in output or "power status: in transition from standby to on" in output:
-                return False
+                power_status = False
             else:
                 logging.warning("Unexpected power status response, assuming TV is OFF.")
-                return False
+                power_status = False
         except subprocess.CalledProcessError as e:
             logging.error(f"Error checking power status: {e}")
-            return False
+            power_status = False
+
+        # Update the Home Assistant switch with the power status
+        if self.ha_client:
+            self.ha_client.update_switch("tv_power", "ON" if power_status else "OFF")
+
+        # Store the power status in the instance variable
+        self.is_on = power_status
+
+        return power_status
 
     def toggle_power(self):
         """Toggle the power state of the TV."""
@@ -67,7 +78,7 @@ class TV:
         
         logging.info("Sending power-on command to TV...")
         subprocess.run(f"echo 'on {self.address}' | cec-client -s -d 1", shell=True)
-        self.is_on = self.check_power_status()
+        self.check_power_status()
 
     def standby(self):
         """Put the TV into standby mode."""
@@ -77,7 +88,7 @@ class TV:
         
         logging.info("Turning off TV (standby mode)...")
         subprocess.run(f"echo 'standby {self.address}' | cec-client -s -d 1", shell=True)
-        self.is_on = self.check_power_status()
+        self.check_power_status()
 
     def get_active_source(self):
         """Retrieve and track the currently active HDMI input source."""

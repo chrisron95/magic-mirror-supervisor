@@ -65,7 +65,7 @@ def main():
 
     # Initialize TV
     global tv
-    tv = TV("0.0.0.0")
+    tv = TV("0.0.0.0", ha_client)
     ha_client.tv = tv  # Set TV in HA client
     logger.info("TV initialized")
 
