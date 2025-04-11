@@ -63,7 +63,7 @@ class HomeAssistantClient:
             binary_sensor = BinarySensor(sensor_settings)
             binary_sensor.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
-            # self.update_binary_sensor(sensor['unique_id'], GPIO.input(self.config[sensor['gpio_pin']]) == GPIO.HIGH)
+            # self.update_binary_sensor(sensor['unique_id'], False)
 
     def setup_buttons(self):
         for button in self.entities['buttons']:
@@ -75,8 +75,16 @@ class HomeAssistantClient:
 
     def create_button_callback(self, method_name):
         def callback(client, userdata, message):
-            method = getattr(self, method_name)
-            method()
+            try:
+                # Resolve dotted paths like "tv.standby"
+                parts = method_name.split('.')
+                obj = self
+                for part in parts[:-1]:  # Traverse to the parent object
+                    obj = getattr(obj, part)
+                method = getattr(obj, parts[-1])  # Get the final method
+                method()  # Call the resolved method
+            except AttributeError as e:
+                logger.error(f"Callback method not found: {e}")
         return callback
     
     def setup_selects(self):
