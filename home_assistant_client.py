@@ -148,8 +148,19 @@ class HomeAssistantClient:
             switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
             switch_entity.write_config()
             setattr(self, f"{switch['unique_id']}_entity", switch_entity)
-            get_state = getattr(self, switch['state'])
-            state = get_state()
+            state_method = switch['state']
+            try:
+                module_name, method_name = state_method.rsplit('.', 1)
+                module = __import__(module_name, fromlist=[method_name])
+                method = getattr(module, method_name, None)
+                if callable(method):
+                    state = method()
+                else:
+                    logger.warning(f"State method {switch['state']} not found or not callable for switch {switch['unique_id']}")
+                    state = False
+            except (ImportError, AttributeError, ValueError) as e:
+                logger.error(f"Error resolving state method {switch['state']} for switch {switch['unique_id']}: {e}")
+                state = False
             if state == True:
                 switch_entity.on()
             else:
