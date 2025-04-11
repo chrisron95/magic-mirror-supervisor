@@ -20,20 +20,16 @@ class Utils:
     def get_ip_address(self):
         return psutil.net_if_addrs()['wlan0'][0].address
 
-    @staticmethod
-    def get_cpu_temperature():
+    def get_cpu_temperature(self):
         return psutil.sensors_temperatures()['cpu_thermal'][0].current
 
-    @staticmethod
-    def get_memory_usage():
+    def get_memory_usage(self):
         return psutil.virtual_memory().percent
 
-    @staticmethod
-    def get_swap_usage():
+    def get_swap_usage(self):
         return psutil.swap_memory().percent
 
-    @staticmethod
-    def get_disk_usage():
+    def get_disk_usage(self):
         return psutil.disk_usage('/').percent
     
     def update(self):
