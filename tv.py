@@ -81,7 +81,7 @@ class TV:
 
         # Poll the power status until the TV is ON or timeout is reached
         timeout = 60  # 1 minute
-        interval = 5
+        interval = 2
         elapsed = 0
 
         while elapsed < timeout:
