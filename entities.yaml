@@ -45,6 +45,11 @@ buttons:
     unique_id: "stop_all_apps"
     callback: "supervisor.stop_all_apps"
 
+  - name: "Reload Magic Mirror Supervisor"
+    unique_id: "reload_supervisor"
+    callback: "supervisor.reload_supervisor"
+    entity_category: "diagnostic"
+
 switches:
   - name: "TV Power"
     unique_id: "tv_power"

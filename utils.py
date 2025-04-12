@@ -37,6 +37,12 @@ class Utils:
         logger.warning("Updating the system!")
         os.system("sudo apt update && sudo apt upgrade -y")
         logger.info("System updated successfully!")
+
+    def reload_supervisor(self):
+        """Reload the Magic Mirror application."""
+        logger.warning("Reloading Magic Mirror!")
+        os.system("cd ~/magic-mirror-supervisor && git pull && sudo systemctl restart magic-mirror-supervisor.service")
+        logger.info("Magic Mirror reloaded successfully!")
     
     def reboot(self):
         """Reboot the system."""
