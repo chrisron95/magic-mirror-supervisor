@@ -103,6 +103,8 @@ def main():
     utils.button3 = button3
     logger.info("Buttons initialized")
 
+    ha_client.setup_discovery()
+
     pause()
 
 if __name__ == "__main__":

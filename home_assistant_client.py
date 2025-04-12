@@ -37,8 +37,6 @@ class HomeAssistantClient:
             port=port
         )
 
-        self.setup_discovery()
-
     def setup_discovery(self):
         if 'binary_sensors' in self.entities and len(self.entities['binary_sensors']) > 0:
             self.setup_binary_sensors()
