@@ -162,7 +162,7 @@ class HomeAssistantClient:
             try:
                 module_name, method_name = state_method.rsplit('.', 1)
                 module = __import__(module_name, fromlist=[method_name])
-                method = getattr(module, method_name, None)
+                method = getattr(self, module, method_name, None)
                 if callable(method):
                     state = method()
                 else:
