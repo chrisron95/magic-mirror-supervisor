@@ -52,6 +52,11 @@ class Supervisor:
     def start_kiosk_app(self):
         os.system("sudo systemctl stop magicmirror.service && sudo systemctl start kiosk.service")
 
+    def refresh_kiosk(self):
+        """Refresh the screen."""
+        self.notify("Refreshing Screen", "Screen refreshed")
+        os.system("xdotool key F5")
+
     def stop_all_apps(self):
         """Stop both Magic Mirror and Kiosk services."""
         self.notify("Button Handler", "All applications stopped")
