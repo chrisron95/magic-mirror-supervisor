@@ -65,7 +65,11 @@ class HomeAssistantClient:
 
     def setup_buttons(self):
         for button in self.entities['buttons']:
-            button_info = ButtonInfo(name=button['name'], device=self.device_info, unique_id=button['unique_id'])
+            button_info = ButtonInfo(
+                name=button['name'],
+                device=self.device_info,
+                unique_id=button['unique_id'],
+            )
             button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info)
             button_entity = Button(button_settings, self.create_button_callback(button['callback']))
             button_entity.write_config()
