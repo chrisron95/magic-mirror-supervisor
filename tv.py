@@ -147,6 +147,8 @@ class TV:
         
     def get_input(self):
         """Return the currently set input source."""
+        if self.ha_client:
+            self.ha_client.update_sensor("tv_input", self.internal_input)
         return self.internal_input
 
     def set_input(self, desired_source):

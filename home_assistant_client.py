@@ -229,6 +229,13 @@ class HomeAssistantClient:
         else:
             logger.warning(f"Binary sensor with unique_id {unique_id} not found.")
 
+    def update_sensor(self, unique_id, state):
+        sensor = getattr(self, f"{unique_id}_entity", None)
+        if sensor:
+            sensor.set_state(state)
+        else:
+            logger.warning(f"Sensor with unique_id {unique_id} not found.")
+
     def update_switch(self, unique_id, state):
         switch = getattr(self, f"{unique_id}_entity", None)
         if switch:
