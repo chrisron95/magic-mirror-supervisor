@@ -129,7 +129,7 @@ class TV:
                 
                 if "unknown (-1)" in source_info or "TV" in source_info:
                     logging.warning(f"TV reports 'unknown (-1)', keeping last known input: {self.internal_input}")
-                    return "Unknown"
+                    return self.internal_input  # Keep the last known input
 
                 match_device = re.search(r"device #(\d+):\s*([^\n]+)", output)
                 if match_device:
