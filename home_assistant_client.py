@@ -248,7 +248,22 @@ class HomeAssistantClient:
 
     def cleanup(self):
         logger.info("Cleaning up Home Assistant client")
-        self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "offline", retain=True)
+
+        # Publish "offline" availability for each entity
+        for entity_type in ['sensors', 'switches', 'buttons', 'binary_sensors', 'selects']:
+            if entity_type in self.entities:
+                for entity in self.entities[entity_type]:
+                    unique_id = entity['unique_id']
+                    availability_topic = f"hmd/{entity_type[:-1]}/{self.config['name'].replace(' ', '-')}/{unique_id}/availability"
+                    self.client.publish(availability_topic, "offline", retain=True)
+                    logger.info(f"Set {entity_type[:-1]} {unique_id} to offline")
+
+        # Publish "offline" availability for the device itself
+        device_availability_topic = f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability"
+        self.client.publish(device_availability_topic, "offline", retain=True)
+        logger.info(f"Set device availability to offline")
+
+        # Stop MQTT client
         self.client.loop_stop()
         self.client.disconnect()
         logger.info("Home Assistant client cleaned up")
