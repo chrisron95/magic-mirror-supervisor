@@ -33,6 +33,14 @@ buttons:
     unique_id: "tv_standby"
     callback: "tv.standby"
 
+  - name: "TV Input RPi"
+    unique_id: "tv_input_rpi"
+    callback: "tv.set_input_rpi"
+    
+  - name: "TV Input HDMI"
+    unique_id: "tv_input_hdmi"
+    callback: "tv.set_input_hdmi"
+
   - name: "Start MagicMirror App"
     unique_id: "start_magicmirror"
     callback: "supervisor.start_magic_mirror_app"

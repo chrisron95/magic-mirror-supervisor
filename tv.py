@@ -159,6 +159,16 @@ class TV:
             self.internal_input = desired_source
             self.wait_for_input_switch(desired_source)
 
+    def set_input_rpi(self):
+        """Set the TV input to the Raspberry Pi."""
+        logging.info("Setting TV input to rPi...")
+        self.set_input('rPi')
+        
+    def set_input_hdmi(self):
+        """Set the TV input to HDMI."""
+        logging.info("Setting TV input to HDMI...")
+        self.set_input('hdmi')
+
     def wait_for_input_switch(self, desired_source, timeout=10, interval=2):
         """Poll the input status every `interval` seconds until `timeout` is reached."""
         logging.info(f"Waiting for TV to switch to {desired_source}...")
