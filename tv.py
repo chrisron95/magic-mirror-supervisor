@@ -29,6 +29,7 @@ class TV:
         else:
             logging.info(f"TV input detected on startup: {detected_input}")
             self.internal_input = detected_input  # Save valid input
+        self.update_input()  # Update Home Assistant with the detected input
 
     def check_power_status(self):
         """Check if the TV is on or in standby and update Home Assistant."""
@@ -145,8 +146,10 @@ class TV:
             logging.error(f"Error getting active source: {e}")
             return "Error"
         
-    def get_input(self):
+        
+    def update_input(self):
         """Return the currently set input source."""
+        self.get_active_source()  # Update internal input
         if self.ha_client:
             self.ha_client.update_sensor("tv_input", self.internal_input)
         return self.internal_input
