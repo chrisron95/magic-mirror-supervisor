@@ -144,6 +144,10 @@ class TV:
         except subprocess.CalledProcessError as e:
             logging.error(f"Error getting active source: {e}")
             return "Error"
+        
+    def get_input(self):
+        """Return the currently set input source."""
+        return self.internal_input
 
     def set_input(self, desired_source):
         """Change the TV input to a specified source and confirm the switch."""

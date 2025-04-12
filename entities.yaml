@@ -14,7 +14,7 @@ sensors:
 
   - name: "TV Current Input"
     unique_id: "tv_current_input"
-    state: "tv.get_active_source"
+    state: "tv.get_input"
 
 buttons:
   - name: "Reboot"
