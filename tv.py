@@ -149,7 +149,7 @@ class TV:
         
     def update_input(self):
         """Return the currently set input source."""
-        self.get_active_source()  # Update internal input
+        # self.get_active_source()  # Update internal input
         if self.ha_client:
             self.ha_client.update_sensor("tv_input", self.internal_input)
         return self.internal_input
@@ -167,6 +167,7 @@ class TV:
             # Set internal state before waiting for confirmation
             self.internal_input = desired_source
             self.wait_for_input_switch(desired_source)
+            self.update_input()  # Update Home Assistant with the new input
 
     def set_input_rpi(self):
         """Set the TV input to the Raspberry Pi."""
