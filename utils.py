@@ -10,9 +10,9 @@ class Utils:
         self.supervisor = supervisor
         self.tv = tv
 
-        self.hw_info = self.get_hw()
+        self.hw_info = self.get_hw_info()
         self.hw_version = None
-        self.sw_info = self.get_sw()
+        self.sw_info = self.get_sw_info()
         self.sw_version = None
         self.serial = None
         self.manufacturer = None
