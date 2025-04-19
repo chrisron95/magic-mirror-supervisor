@@ -52,13 +52,6 @@ def main():
     tv = TV("0.0.0.0", ha_client)
     logger.info("TV initialized")
 
-    # Initialize Buttons with Logging
-    global button1, button2, button3
-    button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
-    button2 = ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
-    button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
-    logger.info("Buttons initialized")
-
     # Initialize Supervisor
     global supervisor
     supervisor = Supervisor(
@@ -76,12 +69,22 @@ def main():
         config=config,
         supervisor=supervisor,
         tv=tv,
-        button1=button1,
-        button2=button2,
-        button3=button3
+        button1=None,
+        button2=None,
+        button3=None
     )
     supervisor.utils = utils  # Set utils in supervisor
     logger.info("Utils initialized")
+
+    # Initialize Buttons with Logging
+    global button1, button2, button3
+    button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
+    button2 = ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
+    button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
+    utils.button1 = button1
+    utils.button2 = button2
+    utils.button3 = button3
+    logger.info("Buttons initialized")
 
     # Initialize Home Assistant Client
     global ha_client
