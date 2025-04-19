@@ -24,7 +24,7 @@ class HomeAssistantClient:
 
         self.device_info = DeviceInfo(
             name=config['name'],
-            identifiers=[config['name'].lower().replace(' ', '_'), self.utils.serial],
+            identifiers=[config['name'].lower().replace(' ', '_')],
             model=self.utils.model,
             manufacturer=self.utils.manufacturer,
             sw_version=self.utils.sw_version,
