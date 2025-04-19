@@ -38,7 +38,7 @@ class Utils:
         os.system("sudo apt update && sudo apt upgrade -y")
         logger.info("System updated successfully!")
 
-    def update_mm_supervisor(self):
+    def update_supervisor(self):
         """Update the supervisor."""
         logger.warning("Updating and reloading Magic Mirror Supervisor!")
         os.system("cd ~/magic-mirror-supervisor && git pull && sudo systemctl restart magic-mirror-supervisor.service")

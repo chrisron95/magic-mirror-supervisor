@@ -98,9 +98,9 @@ buttons:
     callback: "supervisor.stop_all_apps"
     icon: "mdi:close-octagon"
 
-  - name: "Update Magic Mirror Supervisor"
-    unique_id: "update_mm_supervisor"
-    callback: "utils.update_mm_supervisor"
+  - name: "Update Supervisor"
+    unique_id: "update_supervisor"
+    callback: "utils.update_supervisor"
     entity_category: "config"
     device_class: "update"
 
