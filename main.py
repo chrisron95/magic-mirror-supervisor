@@ -47,24 +47,9 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    
-    global ha_client
-    ha_client = HomeAssistantClient(
-        broker=secrets['mqtt_broker'],
-        port=secrets['mqtt_port'],
-        username=secrets['mqtt_username'],
-        password=secrets['mqtt_password'],
-        config=config,
-        entities=entities,
-        supervisor=None,  # We'll set this after creating phone_controller
-        tv=None,  # We'll set this after creating TV
-        utils=None  # We'll set this after creating utils
-    )
-
     # Initialize TV
     global tv
     tv = TV("0.0.0.0", ha_client)
-    ha_client.tv = tv  # Set TV in HA client
     logger.info("TV initialized")
 
     global supervisor
@@ -75,31 +60,40 @@ def main():
         tv=tv,
         utils=None
     )
-    ha_client.supervisor = supervisor  # Set supervisor in HA client
     logger.info("Supervisor initialized")
-
-    global utils
-    utils = Utils(
-        config=config,
-        supervisor=supervisor,
-        tv=tv,
-        button1=None,
-        button2=None,
-        button3=None
-    )
-    ha_client.utils = utils  # Set utils in HA client
-    supervisor.utils = utils  # Set utils in supervisor
-    logger.info("Utils initialized")
 
     # Initialize Buttons with Logging
     global button1, button2, button3
     button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
     button2 = ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
     button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
-    utils.button1 = button1
-    utils.button2 = button2
-    utils.button3 = button3
     logger.info("Buttons initialized")
+
+    global utils
+    utils = Utils(
+        config=config,
+        supervisor=supervisor,
+        tv=tv,
+        button1=button1,
+        button2=button2,
+        button3=button3
+    )
+    supervisor.utils = utils  # Set utils in supervisor
+    logger.info("Utils initialized")
+
+    
+    global ha_client
+    ha_client = HomeAssistantClient(
+        broker=secrets['mqtt_broker'],
+        port=secrets['mqtt_port'],
+        username=secrets['mqtt_username'],
+        password=secrets['mqtt_password'],
+        config=config,
+        entities=entities,
+        supervisor=supervisor,  # We'll set this after creating phone_controller
+        tv=tv,  # We'll set this after creating TV
+        utils=utils  # We'll set this after creating utils
+    )
 
     ha_client.setup_discovery()
 
