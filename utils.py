@@ -9,6 +9,15 @@ class Utils:
         self.config = config
         self.supervisor = supervisor
         self.tv = tv
+
+        self.hw_info = self.get_hw()
+        self.hw_version = None
+        self.sw_info = self.get_sw()
+        self.sw_version = None
+        self.serial = None
+        self.manufacturer = None
+        self.model = None
+
         global ip_address
         ip_address = self.get_ip_address()
         logger.info(f"IP address: {ip_address}")
@@ -31,6 +40,26 @@ class Utils:
 
     def get_disk_usage(self):
         return psutil.disk_usage('/').percent
+    
+    def get_hw_info(self):
+        """Get the Hardware Info."""
+        with open('/proc/cpuinfo') as f:
+            for line in f:
+                if line.startswith('Revision'):
+                    self.hw_version = line.split(':')[1].strip()
+                elif line.startswith('Serial'):
+                    self.serial = line.split(':')[1].strip()
+                elif line.startswith('Model'):
+                    self.model = line.split(':')[1].strip()
+                    self.manufacturer = ' '.join(self.model.split(' ')[0:2])
+        
+    def get_sw_info(self):
+        with open('/etc/os-release') as f:
+            for line in f:
+                if line.startswith('PRETTY_NAME'):
+                    version = line.split('=')[1].strip().replace('"', '')
+                    self.sw_version = version
+                    return version
     
     def update_pi(self):
         """Update the system."""

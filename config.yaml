@@ -1,6 +1,9 @@
 name: "Magic Mirror"
+
+# run this command to get your Raspberry Pi board:
+# cat /sys/firmware/devicetree/base/model;echo
 manufacturer: "Raspberry Pi"
-model: "4 Model B"
+model: "4 Model B Rev 1.5"
 
 log_level: "INFO"
 

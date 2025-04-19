@@ -24,9 +24,12 @@ class HomeAssistantClient:
 
         self.device_info = DeviceInfo(
             name=config['name'],
-            identifiers=[config['name'].lower().replace(' ', '_')],
-            model=config['model'],
-            manufacturer=config['manufacturer']
+            identifiers=[config['name'].lower().replace(' ', '_'), self.utils.serial],
+            model=self.utils.model,
+            manufacturer=self.utils.manufacturer,
+            sw_version=self.utils.sw_version,
+            hw_version=self.utils.hw_version,
+            configuration_url=config.get('configuration_url', None)
         )
         self.mqtt_settings = Settings.MQTT(
             host=broker,
@@ -246,7 +249,7 @@ class HomeAssistantClient:
 
     def on_connect(self, client, userdata, flags, rc):
         logger.info(f"Connected to MQTT broker with result code {rc}")
-        self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "online", retain=True)
+        # self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "online", retain=True)
 
     def on_message(self, client, userdata, message):
         topic = message.topic.split("/")[-1]
