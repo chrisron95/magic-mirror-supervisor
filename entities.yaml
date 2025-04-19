@@ -99,8 +99,8 @@ buttons:
     icon: "mdi:close-octagon"
 
   - name: "Update Magic Mirror Supervisor"
-    unique_id: "reload_supervisor"
-    callback: "utils.update_supervisor"
+    unique_id: "update_mm_supervisor"
+    callback: "utils.update_mm_supervisor"
     entity_category: "config"
     device_class: "update"
 
