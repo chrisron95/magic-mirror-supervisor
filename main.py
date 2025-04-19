@@ -47,21 +47,6 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Initialize TV
-    global tv
-    tv = TV("0.0.0.0", ha_client)
-    logger.info("TV initialized")
-
-    global supervisor
-    supervisor = Supervisor(
-        config=config,
-        ha_client=ha_client,
-        sounds=sounds,
-        tv=tv,
-        utils=None
-    )
-    logger.info("Supervisor initialized")
-
     # Initialize Buttons with Logging
     global button1, button2, button3
     button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
@@ -69,6 +54,23 @@ def main():
     button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
     logger.info("Buttons initialized")
 
+    # Initialize TV
+    global tv
+    tv = TV("0.0.0.0", ha_client)
+    logger.info("TV initialized")
+
+    # Initialize Supervisor
+    global supervisor
+    supervisor = Supervisor(
+        config=config,
+        ha_client=None,
+        sounds=sounds,
+        tv=tv,
+        utils=None
+    )
+    logger.info("Supervisor initialized")
+
+    # Initialize Utils
     global utils
     utils = Utils(
         config=config,
@@ -81,7 +83,7 @@ def main():
     supervisor.utils = utils  # Set utils in supervisor
     logger.info("Utils initialized")
 
-    
+    # Initialize Home Assistant Client
     global ha_client
     ha_client = HomeAssistantClient(
         broker=secrets['mqtt_broker'],
@@ -90,10 +92,11 @@ def main():
         password=secrets['mqtt_password'],
         config=config,
         entities=entities,
-        supervisor=supervisor,  # We'll set this after creating phone_controller
-        tv=tv,  # We'll set this after creating TV
-        utils=utils  # We'll set this after creating utils
+        supervisor=supervisor,
+        tv=tv,
+        utils=utils
     )
+    supervisor.ha_client = ha_client  # Set ha_client in supervisor
 
     ha_client.setup_discovery()
 
