@@ -47,17 +47,17 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Initialize TV
+    global tv
+    tv = TV("0.0.0.0", ha_client)
+    logger.info("TV initialized")
+
     # Initialize Buttons with Logging
     global button1, button2, button3
     button1 = ButtonHandler("Button 1", 25, press_callback=tv.toggle_power, hold_callback=lambda: (tv.standby(), utils.shutdown()))
     button2 = ButtonHandler("Button 2", 24, press_callback=supervisor.switch_apps, hold_callback=supervisor.app_selector)
     button3 = ButtonHandler("Button 3", 23, press_callback=supervisor.stop_all_apps, hold_callback=tv.rotate_input)
     logger.info("Buttons initialized")
-
-    # Initialize TV
-    global tv
-    tv = TV("0.0.0.0", ha_client)
-    logger.info("TV initialized")
 
     # Initialize Supervisor
     global supervisor
@@ -97,7 +97,7 @@ def main():
         utils=utils
     )
     supervisor.ha_client = ha_client  # Set ha_client in supervisor
-
+    
     ha_client.setup_discovery()
 
     pause()
