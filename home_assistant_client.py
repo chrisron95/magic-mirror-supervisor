@@ -68,7 +68,30 @@ class HomeAssistantClient:
             binary_sensor.write_config()
             binary_sensor.set_availability(True)
             setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
-            # self.update_binary_sensor(sensor['unique_id'], False)
+            self.update_binary_sensor(sensor['unique_id'], False)
+
+            # Resolve and set the initial state
+            state_method = sensor.get('state')
+            state = None
+            if state_method:
+                try:
+                    # Resolve dotted paths like "utils.get_ip_address"
+                    parts = state_method.split('.')
+                    obj = self
+                    for part in parts[:-1]:  # Traverse to the parent object
+                        obj = getattr(obj, part)
+                    method = getattr(obj, parts[-1])  # Get the final method
+                    if callable(method):
+                        state = method()  # Call the resolved method
+                except AttributeError as e:
+                    logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
+            
+            # Set the sensor state or log a warning if state is None
+            if state is not None:
+                binary_sensor.set_state(state)
+                logger.info(f"Sensor {sensor['unique_id']} initialized with state: {state}")
+            else:
+                logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved")
 
     def setup_buttons(self):
         for button in self.entities['buttons']:
