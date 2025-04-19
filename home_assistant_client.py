@@ -77,6 +77,7 @@ class HomeAssistantClient:
                 device_class=button.get('device_class', None),       # https://www.home-assistant.io/integrations/button/#device-class
                 entity_category=button.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                 enabled_by_default=button.get('enabled_by_default', None),
+                retain=button.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
                 force_update=self.config.get('force_update', None)
             )
@@ -110,6 +111,7 @@ class HomeAssistantClient:
                 icon=select.get('icon', None),
                 entity_category=select.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                 enabled_by_default=select.get('enabled_by_default', None),
+                retain=select.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
                 force_update=self.config.get('force_update', None)
             )
@@ -140,6 +142,7 @@ class HomeAssistantClient:
                 icon=sensor.get('icon', None),
                 device_class=sensor.get('device_class', None),       # https://www.home-assistant.io/integrations/sensor/#device-class
                 entity_category=sensor.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                state_class=sensor.get('state_class', None),       # https://developers.home-assistant.io/docs/core/entity/#state-class
                 enabled_by_default=sensor.get('enabled_by_default', None),
                 expire_after=self.config.get('expire_after', None),
                 force_update=self.config.get('force_update', None)
@@ -183,6 +186,7 @@ class HomeAssistantClient:
                 device_class=switch.get('device_class', None),       # https://www.home-assistant.io/integrations/switch/#device-class
                 entity_category=switch.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                 enabled_by_default=switch.get('enabled_by_default', None),
+                retain=switch.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
                 force_update=self.config.get('force_update', None)
             )
