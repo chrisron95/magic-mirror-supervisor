@@ -63,6 +63,7 @@ class HomeAssistantClient:
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             binary_sensor = BinarySensor(sensor_settings)
             binary_sensor.write_config()
+            binary_sensor.set_availability(True)
             setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
             # self.update_binary_sensor(sensor['unique_id'], False)
 
@@ -82,6 +83,7 @@ class HomeAssistantClient:
             button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
             button_entity = Button(button_settings, self.create_button_callback(button['callback']))
             button_entity.write_config()
+            button_entity.set_availability(True)
             setattr(self, f"{button['unique_id']}_entity", button_entity)
 
     def create_button_callback(self, method_name):
@@ -114,6 +116,7 @@ class HomeAssistantClient:
             select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
             select_entity = Select(select_settings, self.create_select_callback(select['callback']))
             select_entity.write_config()
+            select_entity.set_availability(True)
             setattr(self, f"{select['unique_id']}_entity", select_entity)
             select_entity.set_options(select['default_option'])
 
@@ -144,6 +147,7 @@ class HomeAssistantClient:
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             sensor_entity = Sensor(sensor_settings)
             sensor_entity.write_config()
+            sensor_entity.set_availability(True)
             setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
 
             # Resolve and set the initial state
@@ -185,6 +189,7 @@ class HomeAssistantClient:
             switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info, manual_availability=True)
             switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
             switch_entity.write_config()
+            switch_entity.set_availability(True)
             setattr(self, f"{switch['unique_id']}_entity", switch_entity)
 
             # Resolve and set the initial state
@@ -278,14 +283,12 @@ class HomeAssistantClient:
             if entity_type in self.entities:
                 for entity in self.entities[entity_type]:
                     unique_id = entity['unique_id']
-                    availability_topic = f"hmd/{entity_type[:-1]}/{self.config['name'].replace(' ', '-')}/{unique_id}/availability"
-                    self.client.publish(availability_topic, "offline", retain=True)
-                    logger.info(f"Set {entity_type[:-1]} {unique_id} to offline")
-
-        # Publish "offline" availability for the device itself
-        device_availability_topic = f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability"
-        self.client.publish(device_availability_topic, "offline", retain=True)
-        logger.info(f"Set device availability to offline")
+                    entity_id = getattr(self, f"{unique_id}_entity", None)
+                    if entity_id:
+                        entity_id.set_availability(False)
+                        logger.info(f"Set {entity_type[:-1]} {unique_id} to offline")
+                    else:
+                        logger.warning(f"{entity_type[:-1].capitalize()} with unique_id {unique_id} not found.")
 
         # Stop MQTT client
         self.client.loop_stop()
