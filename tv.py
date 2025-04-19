@@ -56,6 +56,7 @@ class TV:
         # Update the Home Assistant switch with the power status
         if self.ha_client:
             self.ha_client.update_switch("tv_power", "ON" if power_status else "OFF")
+            self.ha_client.update_binary_sensor("tv_power", power_status)
 
         # Store the power status in the instance variable
         self.is_on = power_status
