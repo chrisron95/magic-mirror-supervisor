@@ -148,7 +148,7 @@ Before getting started, please ensure the following are already set up:
 
 4. **Set Up Systemd Service** (only after the script is working):
 
-    **Note**: You should follow these steps **after** the script is working correctly for you. Since there can only be **one instance** of this script running (due to HDMI access), it is best to ensure everything is working before setting it up as a system service.
+    **Note**: You should follow these steps **after** the script is working correctly for you. Since there can only be **one instance** of this script running (due to GPIO pins alredy being in use), it is best to ensure everything is working before setting it up as a system service.
 
     - Create the systemd service file at `/lib/systemd/system/magic-mirror-supervisor.service`:
 
