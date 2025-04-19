@@ -47,11 +47,15 @@ class Utils:
             for line in f:
                 if line.startswith('Revision'):
                     self.hw_version = line.split(':')[1].strip()
+                    logger.info(f"Hardware version: {self.hw_version}")
                 elif line.startswith('Serial'):
                     self.serial = line.split(':')[1].strip()
+                    logger.info(f"Serial number: {self.serial}")
                 elif line.startswith('Model'):
                     self.model = line.split(':')[1].strip()
                     self.manufacturer = ' '.join(self.model.split(' ')[0:2])
+                    logger.info(f"Manufacturer: {self.manufacturer}")
+                    logger.info(f"Model: {self.model}")
         
     def get_sw_info(self):
         with open('/etc/os-release') as f:
@@ -59,6 +63,7 @@ class Utils:
                 if line.startswith('PRETTY_NAME'):
                     version = line.split('=')[1].strip().replace('"', '')
                     self.sw_version = version
+                    logger.info(f"Software version: {self.sw_version}")
                     return version
     
     def update_pi(self):
