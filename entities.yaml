@@ -48,19 +48,19 @@ buttons:
   - name: "Reboot"
     unique_id: "reboot"
     callback: "utils.reboot"
-    entity_category: "config"
+    entity_category: "CONFIG"
     device_class: "restart"
 
   - name: "Shutdown"
     unique_id: "shutdown"
     callback: "utils.shutdown"
-    entity_category: "config"
+    entity_category: "CONFIG"
     icon: "mdi:power-plug-off-outline"
 
   - name: "Update Pi"
     unique_id: "update_pi"
     callback: "utils.update_pi"
-    entity_category: "config"
+    entity_category: "CONFIG"
     device_class: "update"
 
   - name: "TV Power On"
