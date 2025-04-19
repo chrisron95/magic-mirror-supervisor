@@ -57,9 +57,9 @@ buttons:
     entity_category: "config"
     icon: "mdi:power-plug-off-outline"
 
-  - name: "Update"
-    unique_id: "update"
-    callback: "utils.update"
+  - name: "Update Pi"
+    unique_id: "update_pi"
+    callback: "utils.update_pi"
     entity_category: "config"
     device_class: "update"
 
@@ -98,11 +98,11 @@ buttons:
     callback: "supervisor.stop_all_apps"
     icon: "mdi:close-octagon"
 
-  - name: "Reload Magic Mirror Supervisor"
+  - name: "Update Magic Mirror Supervisor"
     unique_id: "reload_supervisor"
-    callback: "supervisor.reload_supervisor"
+    callback: "utils.update_supervisor"
     entity_category: "config"
-    device_class: "restart"
+    device_class: "update"
 
   - name: "Refresh Kiosk"
     unique_id: "refresh_kiosk"

@@ -32,17 +32,17 @@ class Utils:
     def get_disk_usage(self):
         return psutil.disk_usage('/').percent
     
-    def update(self):
+    def update_pi(self):
         """Update the system."""
         logger.warning("Updating the system!")
         os.system("sudo apt update && sudo apt upgrade -y")
         logger.info("System updated successfully!")
 
-    def reload_supervisor(self):
-        """Reload the Magic Mirror application."""
-        logger.warning("Reloading Magic Mirror!")
+    def update_supervisor(self):
+        """Update the supervisor."""
+        logger.warning("Updating and reloading Magic Mirror Supervisor!")
         os.system("cd ~/magic-mirror-supervisor && git pull && sudo systemctl restart magic-mirror-supervisor.service")
-        logger.info("Magic Mirror reloaded successfully!")
+        logger.info("Supervisor updated and reloaded successfully!")
     
     def reboot(self):
         """Reboot the system."""
