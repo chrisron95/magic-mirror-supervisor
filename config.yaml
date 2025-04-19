@@ -4,5 +4,6 @@ model: "4 Model B"
 
 log_level: "INFO"
 
-
+# expire_after: 3600
+# force_update: True
 

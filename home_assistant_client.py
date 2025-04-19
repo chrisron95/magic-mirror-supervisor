@@ -53,9 +53,14 @@ class HomeAssistantClient:
                 name=sensor['name'],
                 device=self.device_info,
                 unique_id=sensor['unique_id'],
-                entity_category="diagnostic"
+                icon=sensor.get('icon', None),
+                device_class=sensor.get('device_class', None),       # https://www.home-assistant.io/integrations/sensor/#device-class
+                entity_category=sensor.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=sensor.get('enabled_by_default', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=self.config.get('force_update', None)
             )
-            sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info)
+            sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             binary_sensor = BinarySensor(sensor_settings)
             binary_sensor.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
@@ -67,8 +72,14 @@ class HomeAssistantClient:
                 name=button['name'],
                 device=self.device_info,
                 unique_id=button['unique_id'],
+                icon=button.get('icon', None),
+                device_class=button.get('device_class', None),       # https://www.home-assistant.io/integrations/button/#device-class
+                entity_category=button.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=button.get('enabled_by_default', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=self.config.get('force_update', None)
             )
-            button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info)
+            button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
             button_entity = Button(button_settings, self.create_button_callback(button['callback']))
             button_entity.write_config()
             setattr(self, f"{button['unique_id']}_entity", button_entity)
@@ -93,9 +104,14 @@ class HomeAssistantClient:
                 name=select['name'],
                 device=self.device_info,
                 unique_id=select['unique_id'],
-                options=select['options']
+                options=select['options'],
+                icon=select.get('icon', None),
+                entity_category=select.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=select.get('enabled_by_default', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=self.config.get('force_update', None)
             )
-            select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info)
+            select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
             select_entity = Select(select_settings, self.create_select_callback(select['callback']))
             select_entity.write_config()
             setattr(self, f"{select['unique_id']}_entity", select_entity)
@@ -117,11 +133,15 @@ class HomeAssistantClient:
                 name=sensor['name'],
                 device=self.device_info,
                 unique_id=sensor['unique_id'],
-                entity_category=sensor.get('entity_category'),
-                device_class=sensor.get('device_class'),
-                unit_of_measurement=sensor.get('unit_of_measurement')
+                unit_of_measurement=sensor.get('unit_of_measurement', None),
+                icon=sensor.get('icon', None),
+                device_class=sensor.get('device_class', None),       # https://www.home-assistant.io/integrations/sensor/#device-class
+                entity_category=sensor.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=sensor.get('enabled_by_default', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=self.config.get('force_update', None)
             )
-            sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info)
+            sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             sensor_entity = Sensor(sensor_settings)
             sensor_entity.write_config()
             setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
@@ -154,9 +174,15 @@ class HomeAssistantClient:
             switch_info = SwitchInfo(
                 name=switch['name'],
                 device=self.device_info,
-                unique_id=switch['unique_id']
+                unique_id=switch['unique_id'],
+                icon=switch.get('icon', None),
+                device_class=switch.get('device_class', None),       # https://www.home-assistant.io/integrations/switch/#device-class
+                entity_category=switch.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=switch.get('enabled_by_default', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=self.config.get('force_update', None)
             )
-            switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info)
+            switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info, manual_availability=True)
             switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
             switch_entity.write_config()
             setattr(self, f"{switch['unique_id']}_entity", switch_entity)
