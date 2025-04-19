@@ -1,8 +1,6 @@
 # Magic Mirror Supervisor
 
-**Original Project Created in 2025 by Chris Heder (GitHub: [@chrisron95](https://github.com/chrisron95)).**
-
-**[Original repo](https://github.com/chrisron95/magic-mirror-supervisor)**
+**[Original Project](https://github.com/chrisron95/magic-mirror-supervisor) Created in 2025 by Chris Heder (GitHub: [@chrisron95](https://github.com/chrisron95)).**
 
 ---
 
