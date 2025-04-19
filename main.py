@@ -54,8 +54,6 @@ def main():
         port=secrets['mqtt_port'],
         username=secrets['mqtt_username'],
         password=secrets['mqtt_password'],
-        token=secrets['ha_api_token'],
-        api_url=secrets['ha_api_url'],
         config=config,
         entities=entities,
         supervisor=None,  # We'll set this after creating phone_controller

@@ -7,9 +7,7 @@ from ha_mqtt_discoverable.sensors import BinarySensor, BinarySensorInfo, Button,
 logger = logging.getLogger(__name__)
 
 class HomeAssistantClient:
-    def __init__(self, broker, port, username, password, token, api_url, config, entities, supervisor, tv, utils):
-        self.token = token
-        self.api_url = api_url
+    def __init__(self, broker, port, username, password, config, entities, supervisor, tv, utils):
         self.client = mqtt.Client()
         self.client.username_pw_set(username, password)
         self.client.on_connect = self.on_connect
