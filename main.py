@@ -49,7 +49,7 @@ def main():
 
     # Initialize TV
     global tv
-    tv = TV("0.0.0.0", ha_client)
+    tv = TV("0.0.0.0", ha_client=None)
     logger.info("TV initialized")
 
     # Initialize Supervisor
@@ -100,6 +100,7 @@ def main():
         utils=utils
     )
     supervisor.ha_client = ha_client  # Set ha_client in supervisor
+    tv.ha_client = ha_client  # Set ha_client in TV
     
     ha_client.setup_discovery()
 
