@@ -54,7 +54,7 @@ class HomeAssistantClient:
                 device=self.device_info,
                 unique_id=sensor['unique_id'],
                 icon=sensor.get('icon', None),
-                device_class=sensor.get('device_class', None),       # https://www.home-assistant.io/integrations/sensor/#device-class
+                device_class=sensor.get('device_class', None),       # https://www.home-assistant.io/integrations/binary_sensor/#device-class
                 entity_category=sensor.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                 enabled_by_default=sensor.get('enabled_by_default', None),
                 expire_after=self.config.get('expire_after', None),
