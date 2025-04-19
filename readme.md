@@ -110,8 +110,31 @@ Before getting started, please ensure the following are already set up:
 
 2. **Set up a Python Virtual Environment (Recommended)**:
 
+    Create a Python virtual environment:
+
     ```bash
     python3 -m venv .venv
+    ```
+
+    **Important**: To ensure your virtual environment works correctly with system packages, you **must** set `include-system-site-packages = True` in the `.venv/pyvenv.cfg` file.
+
+    Edit the `.venv/pyvenv.cfg` file:
+
+    ```bash
+    nano .venv/pyvenv.cfg
+    ```
+
+    Add/modify the following line:
+
+    ```ini
+    include-system-site-packages = True
+    ```
+
+    After making this change, save and close the file.
+
+    Then, activate the virtual environment:
+
+    ```bash
     source .venv/bin/activate  # On Windows: .venv\Scripts\activate
     ```
 
