@@ -111,7 +111,7 @@ buttons:
 
 switches:
   - name: "TV Power"
-    unique_id: "tv_power"
+    unique_id: "tv_power_switch"
     on_callback: "tv.power_on"
     off_callback: "tv.standby"
     state: "tv.check_power_status"
