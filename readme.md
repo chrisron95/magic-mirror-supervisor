@@ -1,6 +1,10 @@
 # Magic Mirror Supervisor
 
-**Original Project Created in 2025 by Chris Heder (GitHub: [@chrisron95](https://github.com/chrisron95))**
+**Original Project Created in 2025 by Chris Heder (GitHub: [@chrisron95](https://github.com/chrisron95)).**
+
+**[Original repo](https://github.com/chrisron95/magic-mirror-supervisor)**
+
+---
 
 This Python-based **Magic Mirror Supervisor** manages and automates various functionalities for a **Magic Mirror** setup. The Magic Mirror is a 42" TV with a mirrored acrylic sheet and an IR touch screen overlay. It’s powered by a Raspberry Pi 4. I have the [MagicMirror2](https://magicmirror.builders/) software installed, but I prefer to run a **Chromium kiosk browser** displaying a Home Assistant dashboard.
 
