@@ -69,7 +69,7 @@ class Utils:
     def update_pi(self):
         """Update the system."""
         logger.warning("Updating the system!")
-        os.system("sudo apt update && sudo apt upgrade -y")
+        os.system("sudo apt update && sudo apt upgrade -y && sudo reboot")
         logger.info("System updated successfully!")
 
     def update_supervisor(self):
