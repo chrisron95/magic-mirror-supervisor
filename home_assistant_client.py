@@ -61,7 +61,7 @@ class HomeAssistantClient:
                 entity_category=sensor.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                 enabled_by_default=sensor.get('enabled_by_default', None),
                 expire_after=self.config.get('expire_after', None),
-                force_update=self.config.get('force_update', None)
+                force_update=True
             )
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             binary_sensor = BinarySensor(sensor_settings)
@@ -105,7 +105,7 @@ class HomeAssistantClient:
                 enabled_by_default=button.get('enabled_by_default', None),
                 retain=button.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
-                force_update=self.config.get('force_update', None)
+                force_update=True
             )
             button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
             button_entity = Button(button_settings, self.create_button_callback(button['callback']))
@@ -139,7 +139,7 @@ class HomeAssistantClient:
                 enabled_by_default=select.get('enabled_by_default', None),
                 retain=select.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
-                force_update=self.config.get('force_update', None)
+                force_update=True
             )
             select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
             select_entity = Select(select_settings, self.create_select_callback(select['callback']))
@@ -171,7 +171,7 @@ class HomeAssistantClient:
                 state_class=sensor.get('state_class', None),       # https://developers.home-assistant.io/docs/core/entity/#state-class
                 enabled_by_default=sensor.get('enabled_by_default', None),
                 expire_after=self.config.get('expire_after', None),
-                force_update=self.config.get('force_update', None)
+                force_update=True
             )
             sensor_settings = Settings(mqtt=self.mqtt_settings, entity=sensor_info, manual_availability=True)
             sensor_entity = Sensor(sensor_settings)
@@ -214,7 +214,7 @@ class HomeAssistantClient:
                 enabled_by_default=switch.get('enabled_by_default', None),
                 retain=switch.get('retain', None),
                 expire_after=self.config.get('expire_after', None),
-                force_update=self.config.get('force_update', None)
+                force_update=True
             )
             switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info, manual_availability=True)
             switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
