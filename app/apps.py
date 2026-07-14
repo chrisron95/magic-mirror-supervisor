@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import signal
@@ -86,9 +87,13 @@ class AppManager:
         self._processes = processes
         self._main_process = main_process
 
+        generation = self._generation
         if main_process and app.get('restart', True):
-            generation = self._generation
             threading.Thread(target=self._monitor, args=(name, generation), daemon=True).start()
+
+        liveness_check = app.get('liveness_check')
+        if main_process and liveness_check:
+            threading.Thread(target=self._monitor_liveness, args=(name, generation, liveness_check), daemon=True).start()
 
     def _spawn(self, app_name, command, cwd, env, log_suffix):
         log_path = os.path.join(self.log_dir, f"{app_name}-{log_suffix}.log")
@@ -133,3 +138,47 @@ class AppManager:
             if generation != self._generation:
                 return
             self._launch(name)
+
+    def _monitor_liveness(self, name, generation, liveness_check):
+        """Some freezes (e.g. a hung renderer) leave the process running but unresponsive,
+        so _monitor's exit-detection never fires. Periodically screenshot the display and
+        restart the app if nothing has visibly changed in a while."""
+        interval = liveness_check.get('interval', 30)
+        stale_after = liveness_check.get('stale_after', 180)
+        max_unchanged = max(1, round(stale_after / interval))
+
+        screenshot_path = os.path.join(self.log_dir, f"{name}-liveness.png")
+        last_hash = None
+        unchanged_count = 0
+
+        while True:
+            time.sleep(interval)
+
+            with self._lock:
+                if generation != self._generation:
+                    return
+
+            current_hash = self._capture_screenshot_hash(screenshot_path)
+            if current_hash is None:
+                continue  # capture failed; don't count a failed check as a frozen screen
+
+            unchanged_count = unchanged_count + 1 if current_hash == last_hash else 0
+            last_hash = current_hash
+
+            if unchanged_count >= max_unchanged:
+                with self._lock:
+                    if generation != self._generation:
+                        return
+                    logger.warning(f"App '{name}' appears frozen (no screen change in {stale_after}s); restarting")
+                    self.stop()
+                    self._launch(name)
+                return
+
+    def _capture_screenshot_hash(self, path):
+        try:
+            subprocess.run(["scrot", "--overwrite", path], check=True, capture_output=True, timeout=10)
+            with open(path, "rb") as f:
+                return hashlib.md5(f.read()).hexdigest()
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            logger.warning(f"Liveness screenshot capture failed: {e}")
+            return None

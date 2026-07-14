@@ -95,6 +95,7 @@ Before getting started, please ensure the following are already set up:
 - **Raspberry Pi**: With Raspberry Pi OS installed and connected to your network.
 - **MagicMirror2**: Already set up on the Raspberry Pi for the Magic Mirror interface.
 - **IR Touch Screen Overlay**: The setup assumes you have an IR touch screen overlay for the mirror, such as the [IR Touch Screen on Amazon](https://a.co/d/fW02iNM) that makes it a touchscreen interface.
+- **scrot** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install scrot`.
 
 ---
 
@@ -281,6 +282,8 @@ selects:
 
 ### **config/apps.yaml**
 This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirror, or anything you add — a game, a photo slideshow, etc.), replacing what used to be separate systemd services for each. See the comments in the file itself for the schema; `supervisor.start_app("name")` and the buttons/selects above are how you trigger one.
+
+An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `scrot` installed on the Pi.
 
 ---
 
