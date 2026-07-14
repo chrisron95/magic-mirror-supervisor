@@ -129,14 +129,14 @@ class HomeAssistantClient:
                     force_update=True
                 )
                 button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
-                button_entity = Button(button_settings, self.create_button_callback(button['callback']))
+                button_entity = Button(button_settings, self.create_button_callback(button['callback'], button.get('args')))
                 button_entity.write_config()
                 button_entity.set_availability(True)
                 setattr(self, f"{button['unique_id']}_entity", button_entity)
             except Exception as e:
                 logger.warning(f"Failed to set up button {button.get('unique_id')}: {e}")
 
-    def create_button_callback(self, method_name):
+    def create_button_callback(self, method_name, args=None):
         def callback(client, userdata, message):
             try:
                 # Resolve dotted paths like "tv.standby"
@@ -145,7 +145,7 @@ class HomeAssistantClient:
                 for part in parts[:-1]:  # Traverse to the parent object
                     obj = getattr(obj, part)
                 method = getattr(obj, parts[-1])  # Get the final method
-                method()  # Call the resolved method
+                method(*args) if args else method()  # Call the resolved method
             except AttributeError as e:
                 logger.error(f"Callback method not found: {e}")
         return callback

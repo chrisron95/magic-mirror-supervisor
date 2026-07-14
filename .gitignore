@@ -212,5 +212,6 @@ pyrightconfig.json
 
 config/secrets.yaml
 data/settings.yaml
+logs/
 
 sounds/

@@ -1,0 +1,37 @@
+apps:
+  kiosk:
+    name: "Home Assistant Kiosk"
+    working_directory: "/home/chris"
+    environment:
+      DISPLAY: ":0.0"
+      XAUTHORITY: "/home/chris/.Xauthority"
+    setup:
+      - "xset s noblank"
+      - "xset s off"
+      - "xset -dpms"
+      # NOTE: copied verbatim from kiosk.sh, which still points at /home/pi even though
+      # everything else (XAUTHORITY, MagicMirror, etc.) now runs as the chris user.
+      # Verify this is still the right Chromium profile path before relying on it.
+      - "sed -i 's/\"exited_cleanly\":false/\"exited_cleanly\":true/' /home/pi/.config/chromium/Default/Preferences"
+      - "sed -i 's/\"exit_type\":\"Crashed\"/\"exit_type\":\"Normal\"/' /home/pi/.config/chromium/Default/Preferences"
+    background:
+      - "unclutter -idle 0.5 -root"
+      - "dbus-run-session /usr/bin/onboard"
+    command: >-
+      /usr/bin/chromium-browser --noerrdialogs --disable-infobars
+      --enable-features=OverlayScrollbar,OverlayScrollbarFlashAfterAnyScrollUpdate,OverlayScrollbarFlashWhenMouseEnter
+      --disable-restore-session-state --kiosk --force-device-scale-factor=0.9
+      --pull-to-refresh=1 --enable-virtual-keyboard
+      http://192.168.1.70:8123/dashboard-magicmirror/dashboard
+    restart: true
+
+  magicmirror:
+    name: "Magic Mirror"
+    working_directory: "/home/chris/MagicMirror"
+    command: "/usr/bin/npm start"
+    restart: true
+
+# To add another app (a game, a photo slideshow, etc.), add a new entry here with at
+# least a `command`; `working_directory`, `environment`, `setup`, `background`, and
+# `restart` are all optional. Then wire it up to a button/select in entities.yaml the
+# same way "kiosk" and "magicmirror" are.

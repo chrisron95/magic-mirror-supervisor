@@ -85,12 +85,14 @@ buttons:
 
   - name: "Start MagicMirror App"
     unique_id: "start_magicmirror"
-    callback: "supervisor.start_magic_mirror_app"
+    callback: "supervisor.start_app"
+    args: ["magicmirror"]
     icon: "mdi:mirror-rectangle"
 
   - name: "Start Home Assistant"
     unique_id: "start_home_assistant"
-    callback: "supervisor.start_kiosk_app"
+    callback: "supervisor.start_app"
+    args: ["kiosk"]
     icon: "mdi:home-assistant"
 
   - name: "Stop All Apps"
@@ -124,5 +126,3 @@ selects:
     callback: "set_default_app"
     entity_category: "config"
     icon: "mdi:application-cog"
-
-# selects:
