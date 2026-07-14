@@ -1,6 +1,7 @@
 import psutil
 import logging
 import os
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,22 @@ class Utils:
         logger.info(f"Disk usage: {disk_usage}%")
 
     def get_ip_address(self):
-        return psutil.net_if_addrs()['wlan0'][0].address
+        """Return the IP address of the first active interface (prefers wlan0, then eth0)."""
+        interfaces = psutil.net_if_addrs()
+        for preferred in ("wlan0", "eth0"):
+            for addr in interfaces.get(preferred, []):
+                if addr.family == socket.AF_INET:
+                    return addr.address
+
+        for name, addrs in interfaces.items():
+            if name == "lo":
+                continue
+            for addr in addrs:
+                if addr.family == socket.AF_INET:
+                    return addr.address
+
+        logger.warning("Could not determine IP address from any network interface")
+        return "Unknown"
 
     def get_cpu_temperature(self):
         return psutil.sensors_temperatures()['cpu_thermal'][0].current
