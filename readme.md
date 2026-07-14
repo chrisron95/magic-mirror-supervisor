@@ -285,6 +285,8 @@ This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirro
 
 An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `scrot` installed on the Pi.
 
+Each app's stdout/stderr log under `logs/` is capped at `AppManager.MAX_LOG_BYTES` (5 MB by default) and rotated to a single `.1` backup when it's exceeded, so log growth stays bounded regardless of uptime or how chatty an app's console output is.
+
 ---
 
 ## Usage
@@ -337,7 +339,7 @@ magic-mirror-supervisor/
 │   └── apps.yaml
 ├── data/
 │   └── settings.yaml               (gitignored; written at runtime, e.g. the HA-selected default app)
-├── logs/                           (gitignored; per-app stdout/stderr from app/apps.py)
+├── logs/                           (gitignored; per-app stdout/stderr, size-capped and rotated)
 ├── sounds/                         # Audio assets
 └── pi_files/                       # Reference copies of the systemd unit files installed on the Pi
 ```

@@ -13,6 +13,7 @@ class AppManager:
     MagicMirror, etc.), replacing what used to be separate systemd services for each."""
 
     RESTART_DELAY = 2  # seconds to wait before relaunching an app that exited unexpectedly
+    MAX_LOG_BYTES = 5 * 1024 * 1024  # rotate a log past this size, keeping one backup
 
     def __init__(self, apps, log_dir="logs"):
         self.apps = apps  # dict: app name -> config, as parsed from apps.yaml
@@ -97,12 +98,29 @@ class AppManager:
 
     def _spawn(self, app_name, command, cwd, env, log_suffix):
         log_path = os.path.join(self.log_dir, f"{app_name}-{log_suffix}.log")
+        self._rotate_log_if_large(log_path)
         log_file = open(log_path, "a")
         return subprocess.Popen(
             command, shell=True, cwd=cwd, env=env,
             stdout=log_file, stderr=subprocess.STDOUT,
             preexec_fn=os.setsid  # own process group, so we can cleanly kill the whole subtree later
         )
+
+    def _rotate_log_if_large(self, log_path):
+        """Keep app stdout/stderr logs bounded: once a log exceeds MAX_LOG_BYTES, move it
+        to a single ".1" backup (overwriting any previous one) and start a fresh file.
+        Only runs at spawn time — the file isn't open yet, so there's no risk of a still-
+        running process writing into a renamed/rotated-out file."""
+        try:
+            if os.path.getsize(log_path) <= self.MAX_LOG_BYTES:
+                return
+        except OSError:
+            return  # doesn't exist yet; nothing to rotate
+
+        try:
+            os.replace(log_path, log_path + ".1")
+        except OSError as e:
+            logger.warning(f"Failed to rotate log {log_path}: {e}")
 
     def _terminate(self, process, timeout=5):
         if process.poll() is not None:
