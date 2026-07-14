@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class HomeAssistantClient:
     def __init__(self, broker, port, username, password, config, entities, supervisor, tv, utils):
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
         self.client.username_pw_set(username, password)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
