@@ -22,8 +22,11 @@ with open('config/secrets.yaml', 'r') as secrets_file:
 with open('config/entities.yaml', 'r') as entities_file:
     entities = yaml.safe_load(entities_file)
 
+# Substitute "{{user_home}}" before parsing so apps.yaml can reference the configured
+# home directory without hardcoding it; falls back to the running user's actual home.
+user_home = config.get('user_home', os.path.expanduser('~'))
 with open('config/apps.yaml', 'r') as apps_file:
-    apps_config = yaml.safe_load(apps_file)
+    apps_config = yaml.safe_load(apps_file.read().replace('{{user_home}}', user_home))
 
 # Persisted, user-changeable settings (e.g. default_app selected from Home Assistant)
 settings_store = SettingsStore('data/settings.yaml')

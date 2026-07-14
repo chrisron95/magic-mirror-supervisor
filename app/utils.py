@@ -114,7 +114,8 @@ class Utils:
     def update_supervisor(self):
         """Update the supervisor."""
         logger.warning("Updating and reloading Magic Mirror Supervisor!")
-        os.system("cd ~/magic-mirror-supervisor && git pull && sudo systemctl restart magic-mirror-supervisor.service")
+        user_home = self.config.get('user_home', os.path.expanduser('~'))
+        os.system(f"cd {user_home}/magic-mirror-supervisor && git pull && sudo systemctl restart magic-mirror-supervisor.service")
         logger.info("Supervisor updated and reloaded successfully!")
     
     def reboot(self):

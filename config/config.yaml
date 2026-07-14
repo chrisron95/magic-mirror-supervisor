@@ -1,5 +1,10 @@
 name: "Magic Mirror"
 
+# Absolute path to the Pi user's home directory. Used for the Chromium profile,
+# MagicMirror's install location, and anywhere else a per-user path is needed.
+# If omitted, defaults to whichever user the supervisor process runs as.
+user_home: "/home/chris"
+
 # run this command to get your Raspberry Pi board:
 # cat /sys/firmware/devicetree/base/model;echo
 manufacturer: "Raspberry Pi"

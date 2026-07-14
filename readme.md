@@ -202,6 +202,7 @@ This file contains general configuration like the device name, model, logging le
 
 ```yaml
 name: "Magic Mirror"
+user_home: "/home/chris"
 manufacturer: "Raspberry Pi"
 model: "4 Model B"
 log_level: "INFO"
@@ -209,6 +210,7 @@ default_app: "kiosk"
 ```
 
 - **name**: Name of your device as it appears in Home Assistant.
+- **user_home**: Absolute path to the Pi user's home directory. `apps.yaml` can reference it via `{{user_home}}` instead of hardcoding a path — used for things like the Chromium profile and the MagicMirror install location. Optional; defaults to whichever user the supervisor process runs as.
 - **log_level**: Set the logging level (e.g., `INFO`, `DEBUG`).
 - **default_app**: Which app (from `apps.yaml`) to start at boot if nothing's been selected yet via Home Assistant. See [entities.yaml](#configentitiesyaml) and [apps.yaml](#configappsyaml).
 
