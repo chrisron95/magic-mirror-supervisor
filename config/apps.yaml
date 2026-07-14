@@ -26,7 +26,7 @@ apps:
       /usr/bin/chromium-browser --noerrdialogs --disable-infobars
       --enable-features=OverlayScrollbar,OverlayScrollbarFlashAfterAnyScrollUpdate,OverlayScrollbarFlashWhenMouseEnter
       --disable-restore-session-state --kiosk --force-device-scale-factor=0.9
-      --pull-to-refresh=1 --enable-virtual-keyboard
+      --pull-to-refresh=1 --enable-virtual-keyboard --password-store=basic
       http://192.168.1.70:8123/dashboard-magicmirror/dashboard
     restart: true
     # If the screen hasn't visibly changed in 3 minutes, treat it as a frozen renderer
