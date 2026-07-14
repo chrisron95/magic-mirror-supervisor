@@ -116,4 +116,13 @@ switches:
     off_callback: "tv.standby"
     state: "tv.check_power_status"
 
+selects:
+  - name: "Default Startup App"
+    unique_id: "default_app"
+    options: ["kiosk", "magicmirror"]
+    default_option: "kiosk"
+    callback: "set_default_app"
+    entity_category: "config"
+    icon: "mdi:application-cog"
+
 # selects:

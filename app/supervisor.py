@@ -3,12 +3,13 @@ import logging
 import os
 
 class Supervisor:
-    def __init__(self, config, ha_client, sounds, tv, utils):
+    def __init__(self, config, ha_client, sounds, tv, utils, settings_store):
         self.config = config
         self.ha_client = ha_client
         self.sounds = sounds
         self.tv = tv
         self.utils = utils
+        self.settings_store = settings_store
 
     def notify(self, title, message):
         """Send a notification to the desktop."""
@@ -51,6 +52,27 @@ class Supervisor:
 
     def start_kiosk_app(self):
         os.system("sudo systemctl stop magicmirror.service && sudo systemctl start kiosk.service")
+
+    def start_default_app(self):
+        """Start the default app: a persisted (HA-selected) choice wins over config.yaml's fallback."""
+        default_app = self.settings_store.get("default_app", self.config.get('default_app'))
+        if default_app == "kiosk":
+            self.start_kiosk_app()
+        elif default_app == "magicmirror":
+            self.start_magic_mirror_app()
+        elif default_app:
+            logging.warning(f"Unknown default_app '{default_app}'; not starting any app")
+        else:
+            logging.info("No default_app configured; not starting any app")
+
+    def set_default_app(self, app_name):
+        """Persist the user-selected default startup app (e.g. from the HA select entity)."""
+        if app_name not in ("kiosk", "magicmirror"):
+            logging.warning(f"Ignoring invalid default_app selection: {app_name}")
+            return
+        self.settings_store.set("default_app", app_name)
+        if self.ha_client:
+            self.ha_client.update_select("default_app", app_name)
 
     def refresh_kiosk(self):
         """Refresh the screen."""

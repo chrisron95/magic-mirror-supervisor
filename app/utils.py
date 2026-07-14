@@ -2,12 +2,14 @@ import psutil
 import logging
 import os
 import socket
+import time
 
 logger = logging.getLogger(__name__)
 
 class Utils:
-    def __init__(self, config, supervisor, tv, button1, button2, button3):
+    def __init__(self, config, secrets, supervisor, tv, button1, button2, button3):
         self.config = config
+        self.secrets = secrets
         self.supervisor = supervisor
         self.tv = tv
 
@@ -42,6 +44,29 @@ class Utils:
 
         logger.warning("Could not determine IP address from any network interface")
         return "Unknown"
+
+    def has_network_connection(self, timeout=3):
+        """Check connectivity by probing the MQTT broker (a stand-in for LAN/HA reachability)."""
+        host = self.secrets.get('mqtt_broker')
+        port = self.secrets.get('mqtt_port', 1883)
+        if not host:
+            return False
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            return False
+
+    def wait_for_network(self, timeout=30, interval=2):
+        """Poll for network connectivity for up to `timeout` seconds."""
+        elapsed = 0
+        while elapsed < timeout:
+            if self.has_network_connection():
+                return True
+            time.sleep(interval)
+            elapsed += interval
+        logger.warning(f"No network connection detected after waiting {timeout}s")
+        return False
 
     def get_cpu_temperature(self):
         return psutil.sensors_temperatures()['cpu_thermal'][0].current

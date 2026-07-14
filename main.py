@@ -10,6 +10,7 @@ from app.buttons import ButtonHandler
 from app.home_assistant_client import HomeAssistantClient
 from app.supervisor import Supervisor
 from app.utils import Utils
+from app.settings_store import SettingsStore
 
 # Load configuration from YAML files
 with open('config/config.yaml', 'r') as config_file:
@@ -20,6 +21,9 @@ with open('config/secrets.yaml', 'r') as secrets_file:
 
 with open('config/entities.yaml', 'r') as entities_file:
     entities = yaml.safe_load(entities_file)
+
+# Persisted, user-changeable settings (e.g. default_app selected from Home Assistant)
+settings_store = SettingsStore('data/settings.yaml')
 
 # Configuration
 LOG_LEVEL = getattr(logging, config['log_level'].upper(), logging.DEBUG)
@@ -36,7 +40,8 @@ sounds = {
 
 def signal_handler(sig, frame):
     logger.info('Signal received, exiting...')
-    ha_client.cleanup()
+    if ha_client:
+        ha_client.cleanup()
     utils.cleanup_gpios()
     sys.exit(0)
 
@@ -59,7 +64,8 @@ def main():
         ha_client=None,
         sounds=sounds,
         tv=tv,
-        utils=None
+        utils=None,
+        settings_store=settings_store
     )
     logger.info("Supervisor initialized")
 
@@ -67,6 +73,7 @@ def main():
     global utils
     utils = Utils(
         config=config,
+        secrets=secrets,
         supervisor=supervisor,
         tv=tv,
         button1=None,
@@ -88,21 +95,34 @@ def main():
 
     # Initialize Home Assistant Client
     global ha_client
-    ha_client = HomeAssistantClient(
-        broker=secrets['mqtt_broker'],
-        port=secrets['mqtt_port'],
-        username=secrets['mqtt_username'],
-        password=secrets['mqtt_password'],
-        config=config,
-        entities=entities,
-        supervisor=supervisor,
-        tv=tv,
-        utils=utils
-    )
-    supervisor.ha_client = ha_client  # Set ha_client in supervisor
-    tv.ha_client = ha_client  # Set ha_client in TV
+    ha_client = None
+    try:
+        ha_client = HomeAssistantClient(
+            broker=secrets['mqtt_broker'],
+            port=secrets['mqtt_port'],
+            username=secrets['mqtt_username'],
+            password=secrets['mqtt_password'],
+            config=config,
+            entities=entities,
+            supervisor=supervisor,
+            tv=tv,
+            utils=utils
+        )
+        supervisor.ha_client = ha_client  # Set ha_client in supervisor
+        tv.ha_client = ha_client  # Set ha_client in TV
 
-    ha_client.setup_discovery()
+        ha_client.setup_discovery()
+        logger.info("Home Assistant integration initialized")
+    except Exception:
+        logger.exception("Failed to initialize Home Assistant integration; continuing in offline mode")
+
+    # Auto-start the default app now that the supervisor is fully up, but only once a
+    # network connection is detected.
+    if utils.wait_for_network():
+        logger.info("Network available, starting default app")
+        supervisor.start_default_app()
+    else:
+        logger.warning("No network connection detected; not starting default app")
 
     pause()
 

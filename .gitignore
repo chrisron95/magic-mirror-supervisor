@@ -211,5 +211,6 @@ pyrightconfig.json
 .vscode/
 
 config/secrets.yaml
+data/settings.yaml
 
 sounds/
