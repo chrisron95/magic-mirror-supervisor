@@ -26,6 +26,7 @@ class HomeAssistantClient:
         self.supervisor = supervisor
         self.tv = tv
         self.utils = utils
+        self._shared_entities = []  # entities on the shared client; re-announced on reconnect
         logger.info("HomeAssistantClient initialized, connecting to MQTT broker in the background")
 
         self.device_info = DeviceInfo(
@@ -54,6 +55,18 @@ class HomeAssistantClient:
             port=port,
             client=self.client
         )
+
+    def _rebroadcast_availability_on_reconnect(self, entity):
+        """Button/Switch/Select each own a separate MQTT client (see the comment in
+        __init__), so the shared client's on_connect handler above never fires for them.
+        Wrap their client's on_connect so a dropped-and-restored connection re-announces
+        "online" too, without disturbing the library's own on_connect (command re-subscribe)."""
+        original_on_connect = entity.mqtt_client.on_connect
+        def on_connect(client, userdata, *args):
+            if original_on_connect:
+                original_on_connect(client, userdata, *args)
+            entity.set_availability(True)
+        entity.mqtt_client.on_connect = on_connect
 
     def setup_discovery(self):
         if 'binary_sensors' in self.entities and len(self.entities['binary_sensors']) > 0:
@@ -86,6 +99,7 @@ class HomeAssistantClient:
                 binary_sensor.write_config()
                 binary_sensor.set_availability(True)
                 setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
+                self._shared_entities.append(binary_sensor)
                 self.update_binary_sensor(sensor['unique_id'], False)
 
                 # Resolve and set the initial state
@@ -106,7 +120,7 @@ class HomeAssistantClient:
 
                 # Set the sensor state or log a warning if state is None
                 if state is not None:
-                    binary_sensor.set_state(state)
+                    binary_sensor.update_state(state)
                     logger.info(f"Sensor {sensor['unique_id']} initialized with state: {state}")
                 else:
                     logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved")
@@ -132,6 +146,7 @@ class HomeAssistantClient:
                 button_entity = Button(button_settings, self.create_button_callback(button['callback'], button.get('args')))
                 button_entity.write_config()
                 button_entity.set_availability(True)
+                self._rebroadcast_availability_on_reconnect(button_entity)
                 setattr(self, f"{button['unique_id']}_entity", button_entity)
             except Exception as e:
                 logger.warning(f"Failed to set up button {button.get('unique_id')}: {e}")
@@ -169,6 +184,7 @@ class HomeAssistantClient:
                 select_entity = Select(select_settings, self.create_select_callback(select['callback']))
                 select_entity.write_config()
                 select_entity.set_availability(True)
+                self._rebroadcast_availability_on_reconnect(select_entity)
                 setattr(self, f"{select['unique_id']}_entity", select_entity)
 
                 # Persisted setting (if any) wins over the entities.yaml fallback default
@@ -208,6 +224,7 @@ class HomeAssistantClient:
                 sensor_entity = Sensor(sensor_settings)
                 sensor_entity.write_config()
                 sensor_entity.set_availability(True)
+                self._shared_entities.append(sensor_entity)
                 setattr(self, f"{sensor['unique_id']}_entity", sensor_entity)
 
                 # Resolve and set the initial state
@@ -254,6 +271,7 @@ class HomeAssistantClient:
                 switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
                 switch_entity.write_config()
                 switch_entity.set_availability(True)
+                self._rebroadcast_availability_on_reconnect(switch_entity)
                 setattr(self, f"{switch['unique_id']}_entity", switch_entity)
 
                 # Resolve and set the initial state
@@ -308,7 +326,11 @@ class HomeAssistantClient:
 
     def on_connect(self, client, userdata, flags, rc):
         logger.info(f"Connected to MQTT broker with result code {rc}")
-        # self.client.publish(f"hmd/{self.config['name'].lower().replace(' ', '_')}/availability", "online", retain=True)
+        # The MQTT LWT clears an entity's retained availability to "offline" the moment
+        # any connection drop is detected, even if the underlying client reconnects on
+        # its own right after — so every (re)connect needs to re-announce "online".
+        for entity in self._shared_entities:
+            entity.set_availability(True)
 
     def on_disconnect(self, client, userdata, rc):
         logger.warning(f"Disconnected from MQTT broker (result code {rc}); will keep retrying in the background")
