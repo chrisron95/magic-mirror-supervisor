@@ -5,20 +5,20 @@ import yaml
 import pygame
 import signal
 from signal import pause
-from tv import TV
-from buttons import ButtonHandler
-from home_assistant_client import HomeAssistantClient
-from supervisor import Supervisor
-from utils import Utils
+from app.tv import TV
+from app.buttons import ButtonHandler
+from app.home_assistant_client import HomeAssistantClient
+from app.supervisor import Supervisor
+from app.utils import Utils
 
 # Load configuration from YAML files
-with open('config.yaml', 'r') as config_file:
+with open('config/config.yaml', 'r') as config_file:
     config = yaml.safe_load(config_file)
 
-with open('secrets.yaml', 'r') as secrets_file:
+with open('config/secrets.yaml', 'r') as secrets_file:
     secrets = yaml.safe_load(secrets_file)
 
-with open('entities.yaml', 'r') as entities_file:
+with open('config/entities.yaml', 'r') as entities_file:
     entities = yaml.safe_load(entities_file)
 
 # Configuration
@@ -101,7 +101,7 @@ def main():
     )
     supervisor.ha_client = ha_client  # Set ha_client in supervisor
     tv.ha_client = ha_client  # Set ha_client in TV
-    
+
     ha_client.setup_discovery()
 
     pause()

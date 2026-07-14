@@ -210,6 +210,6 @@ pyrightconfig.json
 
 .vscode/
 
-secrets.yaml
+config/secrets.yaml
 
 sounds/
