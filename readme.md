@@ -28,9 +28,10 @@ This project includes features like **TV management**, **system monitoring**, an
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
-    - [**config.yaml**](#configyaml)
-    - [**secrets.yaml**](#secretsyaml)
-    - [**entities.yaml**](#entitiesyaml)
+    - [**config/config.yaml**](#configconfigyaml)
+    - [**config/secrets.yaml**](#configsecretsyaml)
+    - [**config/entities.yaml**](#configentitiesyaml)
+    - [**config/apps.yaml**](#configappsyaml)
   - [Usage](#usage)
   - [Project Structure](#project-structure)
 
@@ -194,23 +195,25 @@ Before getting started, please ensure the following are already set up:
 
 ## Configuration
 
-The system configuration is handled through the following YAML files:
+The system configuration is handled through YAML files under `config/`:
 
-### **config.yaml**
-This file contains general configuration like the device name, model, logging level, and MQTT settings.
+### **config/config.yaml**
+This file contains general configuration like the device name, model, logging level, and the fallback app to auto-start at boot.
 
 ```yaml
 name: "Magic Mirror"
 manufacturer: "Raspberry Pi"
 model: "4 Model B"
 log_level: "INFO"
+default_app: "kiosk"
 ```
 
 - **name**: Name of your device as it appears in Home Assistant.
 - **log_level**: Set the logging level (e.g., `INFO`, `DEBUG`).
+- **default_app**: Which app (from `apps.yaml`) to start at boot if nothing's been selected yet via Home Assistant. See [entities.yaml](#configentitiesyaml) and [apps.yaml](#configappsyaml).
 
-### **secrets.yaml**
-This file stores sensitive data, such as MQTT credentials and Home Assistant API tokens.
+### **config/secrets.yaml**
+This file stores sensitive data, such as MQTT credentials and Home Assistant API tokens. It's gitignored — never commit it.
 
 ```yaml
 mqtt_broker: "your-mqtt-broker.local"
@@ -225,14 +228,14 @@ mqtt_password: "your-mqtt-password"
 - **ha_api_token**: Your Home Assistant API token.
 - **ha_api_url**: URL of your Home Assistant instance.
 
-### **entities.yaml**
-This file defines the entities (buttons, sensors, switches) that will be discovered in Home Assistant, and the method to use for them.
+### **config/entities.yaml**
+This file defines the entities (buttons, sensors, switches, selects) that will be discovered in Home Assistant, and the method to use for them.
 
 ```yaml
 binary_sensors:
   - name: "TV Power"
     unique_id: "tv_power"
-    function: "tv.check_power_status"
+    state: "tv.check_power_status"
 
 sensors:
   - name: "IP Address"
@@ -256,11 +259,26 @@ buttons:
   - name: "Shutdown"
     unique_id: "shutdown"
     callback: "utils.shutdown"
+
+  - name: "Start MagicMirror App"
+    unique_id: "start_magicmirror"
+    callback: "supervisor.start_app"
+    args: ["magicmirror"]
+
+selects:
+  - name: "Default Startup App"
+    unique_id: "default_app"
+    options: ["kiosk", "magicmirror"]
+    default_option: "kiosk"
+    callback: "set_default_app"
 ```
 
-- **binary_sensors**: Includes binary sensors like the TV's power status.
-- **sensors**: Includes sensors like CPU temperature, memory usage, and disk space.
-- **buttons**: Defines actions that buttons can trigger, such as reboot or shutdown.
+- **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, etc.) back to Home Assistant.
+- **buttons**: Defines actions that buttons can trigger, such as reboot, shutdown, or starting an app. `args` is optional and lets a button call a method with a fixed argument (e.g. `supervisor.start_app("magicmirror")`).
+- **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`.
+
+### **config/apps.yaml**
+This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirror, or anything you add — a game, a photo slideshow, etc.), replacing what used to be separate systemd services for each. See the comments in the file itself for the schema; `supervisor.start_app("name")` and the buttons/selects above are how you trigger one.
 
 ---
 
@@ -295,11 +313,35 @@ buttons:
 
 ## Project Structure
 
-Here's an overview of the main components:
+```
+magic-mirror-supervisor/
+├── main.py                        # Entry point; wires everything together and runs the event loop
+├── requirements.txt
+├── app/                           # Application code
+│   ├── tv.py                      # TV power/input control via HDMI-CEC
+│   ├── buttons.py                 # GPIO button handling (press/hold)
+│   ├── supervisor.py              # App switching, notifications, default-app selection
+│   ├── apps.py                    # Launches/supervises the apps defined in config/apps.yaml
+│   ├── home_assistant_client.py   # MQTT/Home Assistant discovery and entity sync
+│   ├── settings_store.py          # Small persisted key/value store (data/settings.yaml)
+│   └── utils.py                   # System stats and system actions (reboot, shutdown, updates)
+├── config/                        # Deployment-specific configuration (see Configuration below)
+│   ├── config.yaml
+│   ├── secrets.yaml                (gitignored)
+│   ├── entities.yaml
+│   └── apps.yaml
+├── data/
+│   └── settings.yaml               (gitignored; written at runtime, e.g. the HA-selected default app)
+├── logs/                           (gitignored; per-app stdout/stderr from app/apps.py)
+├── sounds/                         # Audio assets
+└── pi_files/                       # Reference copies of the systemd unit files installed on the Pi
+```
 
 - **`main.py`**: The main script that initializes and runs the Magic Mirror Supervisor, managing the TV, buttons, Home Assistant integration, and more.
-- **`tv.py`**: Handles TV operations like turning it on/off, switching inputs, and checking the power status.
-- **`buttons.py`**: Manages physical button interactions via GPIO.
-- **`supervisor.py`**: Handles higher-level actions like switching apps, refreshing the kiosk, and stopping apps.
-- **`home_assistant_client.py`**: Manages MQTT communication with Home Assistant, setting up sensors, buttons, and switches.
-- **`utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), and system actions (reboot, shutdown).
+- **`app/tv.py`**: Handles TV operations like turning it on/off, switching inputs, and checking the power status.
+- **`app/buttons.py`**: Manages physical button interactions via GPIO.
+- **`app/supervisor.py`**: Handles higher-level actions like switching apps, refreshing the kiosk, and stopping apps.
+- **`app/apps.py`**: Starts, stops, and (if configured) auto-restarts the apps defined in `config/apps.yaml` — this is what replaced the old `kiosk.service`/`magicmirror.service` systemd units.
+- **`app/home_assistant_client.py`**: Manages MQTT communication with Home Assistant, setting up sensors, buttons, switches, and selects.
+- **`app/settings_store.py`**: Persists small bits of runtime-changeable state (like the HA-selected default app) to `data/settings.yaml`, separate from the static `config/` files.
+- **`app/utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), network connectivity checks, and system actions (reboot, shutdown).
