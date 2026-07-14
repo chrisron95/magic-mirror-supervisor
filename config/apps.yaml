@@ -29,7 +29,7 @@ apps:
       --pull-to-refresh=1 --enable-virtual-keyboard --password-store=basic
       --force-renderer-accessibility
       https://www.google.com/
-      # http://192.168.1.70:8123/dashboard-magicmirror/dashboard
+    # http://192.168.1.70:8123/dashboard-magicmirror/dashboard
     restart: true
     # If the screen hasn't visibly changed in 3 minutes, treat it as a frozen renderer
     # (still running, just unresponsive) and force a restart. Requires `scrot`
