@@ -5,6 +5,10 @@ apps:
     environment:
       DISPLAY: ":0.0"
       XAUTHORITY: "{{user_home}}/.Xauthority"
+      # Share the real desktop session's D-Bus bus (rather than each process guessing/
+      # creating its own) so onboard's AT-SPI focus listener actually sees Chromium's
+      # focus events and auto-shows the on-screen keyboard.
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{uid}}/bus"
     setup:
       - "xset s noblank"
       - "xset s off"
@@ -17,7 +21,7 @@ apps:
       - "rm -f {{user_home}}/.config/chromium/SingletonLock {{user_home}}/.config/chromium/SingletonSocket {{user_home}}/.config/chromium/SingletonCookie"
     background:
       - "unclutter -idle 0.5 -root"
-      - "dbus-run-session /usr/bin/onboard"
+      - "/usr/bin/onboard"
     command: >-
       /usr/bin/chromium-browser --noerrdialogs --disable-infobars
       --enable-features=OverlayScrollbar,OverlayScrollbarFlashAfterAnyScrollUpdate,OverlayScrollbarFlashWhenMouseEnter
@@ -41,6 +45,7 @@ apps:
 # To add another app (a game, a photo slideshow, etc.), add a new entry here with at
 # least a `command`; `working_directory`, `environment`, `setup`, `background`,
 # `restart`, and `liveness_check` are all optional. Then wire it up to a button/select
-# in entities.yaml the same way "kiosk" and "magicmirror" are. Use "{{user_home}}"
-# anywhere you need the path from config.yaml's `user_home` — it's substituted before
+# in entities.yaml the same way "kiosk" and "magicmirror" are. "{{user_home}}" and
+# "{{uid}}" are available anywhere in this file (the Pi user's home directory from
+# config.yaml's `user_home`, and their numeric user ID) — both are substituted before
 # this file is parsed.
