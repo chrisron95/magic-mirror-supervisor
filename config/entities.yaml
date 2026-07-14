@@ -1,7 +1,7 @@
 binary_sensors:
   - name: "TV Power"
     unique_id: "tv_power"
-    function: "tv.check_power_status"
+    state: "tv.check_power_status"
     device_class: "power"
     icon: "mdi:television"
 
