@@ -39,6 +39,18 @@ sensors:
     entity_category: "diagnostic"
     icon: "mdi:micro-sd"
 
+  - name: "Pi Uptime"
+    unique_id: "pi_uptime"
+    state: "utils.get_pi_uptime"
+    entity_category: "diagnostic"
+    icon: "mdi:clock-outline"
+
+  - name: "Supervisor Uptime"
+    unique_id: "supervisor_uptime"
+    state: "utils.get_supervisor_uptime"
+    entity_category: "diagnostic"
+    icon: "mdi:clock-check-outline"
+
   - name: "TV Current Input"
     unique_id: "tv_current_input"
     state: "tv.get_current_input"

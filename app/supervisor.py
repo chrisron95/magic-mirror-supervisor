@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from .apps import AppManager
+from .utils import format_duration
 
 NONE_APP_OPTION = "No Startup App"  # sentinel for the default_app select's "don't auto-start anything" option
 NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app is running
@@ -12,7 +13,7 @@ NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app i
 # payload of the literal string "None" as a reserved sentinel meaning "reset to unknown",
 # not as a selectable value, so it would never actually display as selected.
 
-UPTIME_REFRESH_INTERVAL = 30  # seconds between "Current App" uptime attribute refreshes
+UPTIME_REFRESH_INTERVAL = 30  # seconds between uptime sensor/attribute refreshes
 
 class Supervisor:
     def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None):
@@ -103,37 +104,28 @@ class Supervisor:
             return
         self.ha_client.update_sensor("current_app", self.get_current_app_display_name())
         self.ha_client.update_select("app_switcher", self.apps.current_app or NO_APP_RUNNING)
-        self._push_uptime()
+        self._push_uptimes()
 
     def _uptime_loop(self):
-        """Keep the "Current App" sensor's uptime attribute ticking for as long as the
+        """Keep the uptime-flavored sensors/attributes ticking for as long as the
         supervisor runs — a single long-lived loop rather than one thread per app launch,
         since it just reads whatever's current each tick (including after a crash/liveness
         restart, which resets AppManager's start time without going through _notify_current_app)."""
         while True:
             time.sleep(UPTIME_REFRESH_INTERVAL)
-            self._push_uptime()
+            self._push_uptimes()
 
-    def _push_uptime(self):
+    def _push_uptimes(self):
         if not self.ha_client:
             return
-        uptime_seconds = self.apps.get_uptime_seconds()
-        attributes = {"uptime": self._format_uptime(uptime_seconds)} if uptime_seconds is not None else {}
+
+        app_uptime_seconds = self.apps.get_uptime_seconds()
+        attributes = {"uptime": format_duration(app_uptime_seconds)} if app_uptime_seconds is not None else {}
         self.ha_client.update_sensor_attributes("current_app", attributes)
 
-    @staticmethod
-    def _format_uptime(seconds):
-        seconds = int(seconds)
-        days, seconds = divmod(seconds, 86400)
-        hours, seconds = divmod(seconds, 3600)
-        minutes, seconds = divmod(seconds, 60)
-        if days:
-            return f"{days}d {hours}h {minutes}m"
-        if hours:
-            return f"{hours}h {minutes}m"
-        if minutes:
-            return f"{minutes}m {seconds}s"
-        return f"{seconds}s"
+        if self.utils:
+            self.ha_client.update_sensor("pi_uptime", self.utils.get_pi_uptime())
+            self.ha_client.update_sensor("supervisor_uptime", self.utils.get_supervisor_uptime())
 
     def switch_to_app(self, name):
         """Callback for the App Switcher select: starts the given app, or stops whatever's

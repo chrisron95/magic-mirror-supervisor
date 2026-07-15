@@ -6,6 +6,22 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
+def format_duration(seconds):
+    """Format a duration in seconds as a compact human string, e.g. "3d 4h 12m"."""
+    seconds = int(seconds)
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+    if days:
+        return f"{days}d {hours}h {minutes}m"
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
+
+
 class Utils:
     def __init__(self, config, secrets, supervisor, tv, buttons=None):
         self.config = config
@@ -13,6 +29,7 @@ class Utils:
         self.supervisor = supervisor
         self.tv = tv
         self.buttons = buttons or []
+        self._start_time = time.monotonic()  # for the "Supervisor Uptime" sensor
 
         self.hw_info = self.get_hw_info()
         self.sw_info = self.get_sw_info()
@@ -80,7 +97,15 @@ class Utils:
 
     def get_disk_usage(self):
         return psutil.disk_usage('/').percent
-    
+
+    def get_pi_uptime(self):
+        """Time since the Pi itself booted, for the "Pi Uptime" sensor."""
+        return format_duration(time.time() - psutil.boot_time())
+
+    def get_supervisor_uptime(self):
+        """Time since this process started, for the "Supervisor Uptime" sensor."""
+        return format_duration(time.monotonic() - self._start_time)
+
     def get_hw_info(self):
         """Get the Hardware Info."""
         with open('/proc/cpuinfo') as f:
