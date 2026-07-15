@@ -1,0 +1,28 @@
+buttons:
+  - name: "Button 1"
+    pin: 25
+    hold_time: 1
+    triggers:
+      1: "tv.toggle_power"
+      hold: ["tv.standby", "utils.shutdown"]
+
+  - name: "Button 2"
+    pin: 24
+    hold_time: 1
+    triggers:
+      1: "supervisor.switch_apps"
+      hold: "supervisor.app_selector"
+
+  - name: "Button 3"
+    pin: 23
+    hold_time: 1
+    triggers:
+      1: "supervisor.stop_all_apps"
+      hold: "tv.rotate_input"
+
+# Each button is a GPIO pin plus a `triggers` map keyed by press count (1, 2, 3, ...) or
+# the literal "hold". A press count with no entry is just ignored, so add `2:`/`3:` once
+# you decide what a double/triple press should do. A trigger's value can be a single
+# dotted path (e.g. "tv.toggle_power", resolved the same way entities.yaml callbacks are,
+# against the running tv/supervisor/utils instances) or a list of dotted paths run in
+# order (e.g. Button 1's hold: turn the TV off, then shut down).

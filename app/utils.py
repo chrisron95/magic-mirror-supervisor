@@ -7,11 +7,12 @@ import time
 logger = logging.getLogger(__name__)
 
 class Utils:
-    def __init__(self, config, secrets, supervisor, tv, button1, button2, button3):
+    def __init__(self, config, secrets, supervisor, tv, buttons=None):
         self.config = config
         self.secrets = secrets
         self.supervisor = supervisor
         self.tv = tv
+        self.buttons = buttons or []
 
         self.hw_info = self.get_hw_info()
         self.sw_info = self.get_sw_info()
@@ -138,7 +139,6 @@ class Utils:
     def cleanup_gpios(self):
         """Cleanup GPIOs."""
         logger.info("Cleaning up GPIOs")
-        self.button1.cleanup()
-        self.button2.cleanup()
-        self.button3.cleanup()
+        for button in self.buttons:
+            button.cleanup()
         logger.info("GPIOs cleaned up successfully!")

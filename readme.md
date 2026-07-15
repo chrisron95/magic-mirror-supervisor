@@ -32,6 +32,7 @@ This project includes features like **TV management**, **system monitoring**, an
     - [**config/secrets.yaml**](#configsecretsyaml)
     - [**config/entities.yaml**](#configentitiesyaml)
     - [**config/apps.yaml**](#configappsyaml)
+    - [**config/buttons.yaml**](#configbuttonsyaml)
   - [Usage](#usage)
   - [Project Structure](#project-structure)
 
@@ -296,6 +297,21 @@ An app can optionally set `liveness_check` (`interval` / `stale_after`, in secon
 
 Each app's stdout/stderr log under `logs/` is capped at `AppManager.MAX_LOG_BYTES` (5 MB by default) and rotated to a single `.1` backup when it's exceeded, so log growth stays bounded regardless of uptime or how chatty an app's console output is.
 
+### **config/buttons.yaml**
+This file defines the physical GPIO buttons: their pin, and what happens on each kind of interaction.
+
+```yaml
+buttons:
+  - name: "Button 1"
+    pin: 25
+    hold_time: 1
+    triggers:
+      1: "tv.toggle_power"
+      hold: ["tv.standby", "utils.shutdown"]
+```
+
+Each button has a `triggers` map keyed by press count (`1`, `2`, `3`, ...) or the literal `"hold"`. A press count with no entry is simply ignored, so double/triple-press support is already there — just add a `2:`/`3:` entry once you decide what it should do. A trigger's value is a dotted method path (e.g. `"tv.toggle_power"`), resolved the same way `entities.yaml` callbacks are, against the running `tv`/`supervisor`/`utils` instances — or a list of dotted paths to run in order (e.g. Button 1's hold: turn the TV off, then shut down). `hold_time` (seconds, default `1`) is how long the button must be held before it counts as a hold instead of a press.
+
 ---
 
 ## Usage
@@ -321,9 +337,7 @@ Each app's stdout/stderr log under `logs/` is capped at `AppManager.MAX_LOG_BYTE
 
     The physical buttons connected to the Raspberry Pi perform various actions such as toggling TV power, switching between Magic Mirror and Home Assistant, stopping all applications to show the desktop, and more.
 
-    The buttons currently support single press and hold functionality.
-
-    These buttons are configured through the `ButtonHandler` class and interact with GPIO pins.
+    Each button supports single, double, triple (or more) presses, plus a hold, disambiguated by the `ButtonHandler` class. Which action fires for which interaction is configured per-button in [`config/buttons.yaml`](#configbuttonsyaml).
 
 ---
 
@@ -335,7 +349,7 @@ magic-mirror-supervisor/
 ├── requirements.txt
 ├── app/                           # Application code
 │   ├── tv.py                      # TV power/input control via HDMI-CEC
-│   ├── buttons.py                 # GPIO button handling (press/hold)
+│   ├── buttons.py                 # GPIO button handling (press-count/hold) + config/buttons.yaml loader
 │   ├── supervisor.py              # App switching, notifications, default-app selection
 │   ├── apps.py                    # Launches/supervises the apps defined in config/apps.yaml
 │   ├── app_templates.py           # Built-in app types (e.g. "kiosk") apps.yaml entries can reference
@@ -346,7 +360,8 @@ magic-mirror-supervisor/
 │   ├── config.yaml
 │   ├── secrets.yaml                (gitignored)
 │   ├── entities.yaml
-│   └── apps.yaml
+│   ├── apps.yaml
+│   └── buttons.yaml
 ├── data/
 │   └── settings.yaml               (gitignored; written at runtime, e.g. the HA-selected default app)
 ├── logs/                           (gitignored; per-app stdout/stderr, size-capped and rotated)
@@ -355,7 +370,7 @@ magic-mirror-supervisor/
 
 - **`main.py`**: The main script that initializes and runs the Magic Mirror Supervisor, managing the TV, buttons, Home Assistant integration, and more.
 - **`app/tv.py`**: Handles TV operations like turning it on/off, switching inputs, and checking the power status.
-- **`app/buttons.py`**: Manages physical button interactions via GPIO.
+- **`app/buttons.py`**: Manages physical button interactions via GPIO — press-count (single/double/triple/...) and hold disambiguation, wired up from `config/buttons.yaml`.
 - **`app/supervisor.py`**: Handles higher-level actions like switching apps, refreshing the kiosk, and stopping apps.
 - **`app/apps.py`**: Starts, stops, and (if configured) auto-restarts the apps defined in `config/apps.yaml` — this is what replaced the old `kiosk.service`/`magicmirror.service` systemd units.
 - **`app/app_templates.py`**: Defines built-in app types (currently just `"kiosk"`) so a new kiosk instance in `apps.yaml` only needs a `url`, not a full copy of the Chromium command/setup/environment.

@@ -31,7 +31,7 @@ python main.py
 
 ## Configuration (config/, gitignored where noted)
 
-Runtime behavior is data-driven from four YAML files, loaded once at startup in `main.py`:
+Runtime behavior is data-driven from five YAML files, loaded once at startup in `main.py`:
 
 - **`config.yaml`** — device name/model, log level, `default_app` fallback.
 - **`secrets.yaml`** (gitignored) — MQTT credentials, `ha_url`. Referenced elsewhere as `{{secrets.<key>}}`.
@@ -44,6 +44,10 @@ Runtime behavior is data-driven from four YAML files, loaded once at startup in 
   `working_directory`/`environment`/`setup`/`background`/`command`/`restart`/`liveness_check` directly,
   the way `magicmirror2` does. `{{user_home}}`, `{{uid}}`, `{{secrets.<key>}}`, and (for templated
   entries) `{{url}}` are substituted by `AppManager._resolve_apps`.
+- **`buttons.yaml`** — declares each physical GPIO button (name, pin, `hold_time`) and its `triggers`
+  map: press count (`1`/`2`/`3`/...) or `"hold"` → a dotted method path or list of them, resolved
+  against the running `tv`/`supervisor`/`utils` instances the same way `entities.yaml` callbacks are.
+  Loaded via `app/buttons.py`'s `load_buttons()`.
 
 `data/settings.yaml` (gitignored, written at runtime) holds the small set of values that can change
 live from Home Assistant (e.g. the HA-selected default startup app) and must survive a restart,
@@ -55,8 +59,10 @@ launchable app (not just another kiosk URL) means adding a template function to 
 
 ## Architecture
 
-`main.py` is the composition root: it loads the four config files, then constructs (in order) `TV` →
-`Supervisor` (which owns an `AppManager`) → `Utils` → three `ButtonHandler`s → `HomeAssistantClient`,
+`main.py` is the composition root: it loads the config files, then constructs (in order) `TV` →
+`Supervisor` (which owns an `AppManager`) → `Utils` → the `ButtonHandler`s (via `buttons.py`'s
+`load_buttons()`, given a `SimpleNamespace(tv=, supervisor=, utils=)` to resolve `buttons.yaml`'s
+dotted paths against) → `HomeAssistantClient`,
 wiring circular references (`supervisor.ha_client`, `tv.ha_client`, etc.) after construction since HA
 setup needs a live `supervisor`/`tv`/`utils` and vice versa. It then waits for network connectivity
 before auto-starting the configured default app, and blocks in `signal.pause()` — all real work happens
@@ -105,8 +111,13 @@ callbacks, not driven from the main thread.
   (apps.yaml key) ↔ display-value (app's HA-visible name) map per entity, since HA shows/sends the
   display string but callbacks and persisted state use the canonical key.
 
-- **`app/buttons.py`** (`ButtonHandler`) — wraps `gpiozero.Button` with press-vs-hold disambiguation
-  (`when_held` sets a flag that `when_released` checks, so a hold doesn't also fire a press).
+- **`app/buttons.py`** (`ButtonHandler`, `load_buttons`) — wraps `gpiozero.Button` with press-count
+  (single/double/triple/...) and hold disambiguation: each `when_released` bumps a counter and
+  (re)starts a short timer (`MULTI_PRESS_WINDOW`), which fires the matching `press_callbacks[count]`
+  once presses stop arriving; `when_held` resets the counter and suppresses the release it interrupts,
+  so a hold never also dispatches as a press. `load_buttons()` reads `buttons.yaml` and resolves its
+  `triggers` dotted paths into these callbacks — the same dotted-path-dispatch idea as `entities.yaml`,
+  just resolved against a `SimpleNamespace` instead of `HomeAssistantClient`.
 
 - **`app/utils.py`** (`Utils`) — system stats (CPU temp, memory, disk, IP) for HA sensors, plus
   system-level actions (reboot, shutdown, update, restart-service) invoked via `os.system`.
