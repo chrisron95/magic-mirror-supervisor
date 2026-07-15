@@ -74,6 +74,13 @@ class TV:
 
         return power_status
 
+    def get_power_status(self):
+        """Return the last-known power status without querying the TV again. cec-client
+        re-initializes the whole CEC adapter on every invocation (often 10+ seconds), so
+        entity setup uses this cached value (from the check_power_status() call already
+        made in __init__) instead of paying that cost twice more at startup."""
+        return self.is_on
+
     def toggle_power(self):
         """Toggle the power state of the TV."""
         if self.is_on:
