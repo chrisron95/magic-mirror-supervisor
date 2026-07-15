@@ -207,9 +207,13 @@ class HomeAssistantClient:
                     options = raw_options
 
                 # entities.yaml's default_option (if any) is a canonical value (an app key,
-                # or NONE_APP_OPTION); "{{apps_all}}" selects default to NONE_APP_OPTION so a
-                # fresh device doesn't silently auto-start whatever app happens to be first.
-                default_option = select.get('default_option', NONE_APP_OPTION if uses_apps_all else None)
+                # or NONE_APP_OPTION) and wins if set. Otherwise, a "{{apps_all}}" select
+                # falls back to whatever config.yaml's default_app actually is — the app
+                # that will really auto-start — so the select reflects reality instead of
+                # showing a generic "nothing selected" placeholder.
+                default_option = select.get('default_option')
+                if default_option is None and uses_apps_all:
+                    default_option = self.supervisor.config.get('default_app') or NONE_APP_OPTION
 
                 select_info = SelectInfo(
                     name=select['name'],
