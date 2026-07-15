@@ -255,6 +255,11 @@ sensors:
   - name: "Disk Usage"
     unique_id: "disk_usage"
     state: "utils.get_disk_usage"
+  - name: "Current App"
+    unique_id: "current_app"
+    state: "supervisor.get_current_app_display_name"
+    attributes:
+      uptime: "supervisor.get_current_app_uptime"
 
 buttons:
   - name: "Reboot"
@@ -277,7 +282,7 @@ selects:
     callback: "set_default_app"
 ```
 
-- **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, etc.) back to Home Assistant.
+- **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, Pi/Supervisor uptime, etc.) back to Home Assistant. A sensor can optionally declare `attributes` — a map of attribute name to dotted method path, resolved the same way `state` is (see "Current App"'s `uptime` above). Attributes are set once at startup like `state`, and also re-resolved periodically for any that change over time (currently just Current App's `uptime`, refreshed every 30s by `Supervisor`) — see `HomeAssistantClient.refresh_sensor_attributes`.
 - **buttons**: Defines actions that buttons can trigger, such as reboot, shutdown, or starting an app. `args` is optional and lets a button call a method with a fixed argument (e.g. `supervisor.start_app("magicmirror2")`).
 - **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`. Its `options` can be `"{{apps_all}}"` to auto-populate from `apps.yaml` — shown as each app's display `name`, with a "No Startup App" option (and default) meaning "don't auto-start anything" — or a plain list of specific app keys (e.g. `["homeassistant_mirror_dashboard", "magicmirror2"]`) to hand-pick a subset instead. Either way, an optional `default_option` overrides the pre-selected choice; it must be the app's apps.yaml *key* (or `"No Startup App"`), not its display `name`. (The option is deliberately not called "None" — Home Assistant's MQTT integration treats that exact string as a reserved sentinel for "unknown" rather than a selectable value.)
 
@@ -330,7 +335,7 @@ Each button has a `triggers` map keyed by press count (`1`, `2`, `3`, ...) or th
 
     Once integrated, you can control and monitor the following via Home Assistant:
     - **Switches**: Control TV power and input.
-    - **Sensors**: Monitor system stats like IP address, CPU temperature, and memory usage.
+    - **Sensors**: Monitor system stats like IP address, CPU temperature, memory usage, and Pi/Supervisor uptime.
     - **Buttons**: Trigger actions like reboot, shutdown, or app switching.
 
 3. **Control via Physical Buttons**:
