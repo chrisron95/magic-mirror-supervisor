@@ -330,12 +330,12 @@ services:
     environment:
       DISPLAY: ":0.0"
       XAUTHORITY: "{{user_home}}/.Xauthority"
-    command: "uxplay -n MagicMirror -nh -fs -avdec"
+    command: "uxplay -n MagicMirror -nh -fs -avdec -nofreeze"
     restart: true
     autostart: true
 ```
 
-Any number of services can run at the same time as each other and as whatever app is currently showing — they're independent, not something you switch between. `working_directory`/`environment`/`command`/`restart` mean the same thing as a directly-defined `apps.yaml` entry (no templates, no `setup`/`background`/`liveness_check`); `{{user_home}}`, `{{uid}}`, and `{{secrets.<key>}}` are available the same way too. `autostart: true` starts the service when the supervisor boots (independent of network state), instead of waiting for it to be toggled on.
+Any number of services can run at the same time as each other and as whatever app is currently showing — they're independent, not something you switch between. `working_directory`/`environment`/`command`/`restart` mean the same thing as a directly-defined `apps.yaml` entry (no templates, no `setup`/`background`/`liveness_check`); `{{user_home}}`, `{{uid}}`, and `{{secrets.<key>}}` are available the same way too. `autostart: true` starts the service when the supervisor boots (independent of network state), instead of waiting for it to be toggled on. `-nofreeze` matters here specifically: without it, UxPlay leaves the last mirrored frame on screen after the client disconnects instead of clearing it, which without the AirPlay switch we've now got would otherwise mean no way to get back to a blank/idle state short of restarting the whole supervisor.
 
 A service is wired up to Home Assistant as a `switch` in `entities.yaml` (see the "AirPlay" switch there) — its `unique_id` must match the service's key here, since `Supervisor` uses that to look up and push state changes back. There isn't a fully generic callback for this yet: adding a second independent service means adding a small `start_<name>`/`stop_<name>`/`is_<name>_running` trio to `app/supervisor.py`, mirroring `start_uxplay`/`stop_uxplay`/`is_uxplay_running`.
 
