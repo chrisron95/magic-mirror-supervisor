@@ -111,6 +111,12 @@ buttons:
     entity_category: "config"
     device_class: "update"
 
+  - name: "Restart Supervisor"
+    unique_id: "restart_supervisor"
+    callback: "utils.restart_supervisor"
+    entity_category: "config"
+    device_class: "restart"
+
   - name: "Refresh Kiosk"
     unique_id: "refresh_kiosk"
     callback: "supervisor.refresh_kiosk"
