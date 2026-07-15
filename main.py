@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import time
 import yaml
 import pygame
 import signal
@@ -60,14 +61,16 @@ def signal_handler(sig, frame):
 def main():
     """Main function to initialize the system."""
     logger.info("Initializing system...")
+    boot_start = time.monotonic()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Initialize TV
     global tv
+    step_start = time.monotonic()
     tv = TV("0.0.0.0", ha_client=None)
-    logger.info("TV initialized")
+    logger.info(f"TV initialized ({time.monotonic() - step_start:.1f}s)")
 
     # Initialize Supervisor
     global supervisor
@@ -112,6 +115,7 @@ def main():
     global ha_client
     ha_client = None
     try:
+        step_start = time.monotonic()
         ha_client = HomeAssistantClient(
             broker=secrets['mqtt_broker'],
             port=secrets['mqtt_port'],
@@ -125,20 +129,29 @@ def main():
         )
         supervisor.ha_client = ha_client  # Set ha_client in supervisor
         tv.ha_client = ha_client  # Set ha_client in TV
+        logger.info(f"HomeAssistantClient constructed ({time.monotonic() - step_start:.1f}s)")
 
+        step_start = time.monotonic()
         ha_client.setup_discovery()
-        logger.info("Home Assistant integration initialized")
+        logger.info(f"Home Assistant integration initialized ({time.monotonic() - step_start:.1f}s)")
     except Exception:
         logger.exception("Failed to initialize Home Assistant integration; continuing in offline mode")
 
     # Auto-start the default app now that the supervisor is fully up, but only once a
     # network connection is detected — the kiosk dashboard and MagicMirror's modules
     # both depend on it, so starting either offline would just show a broken screen.
-    if utils.wait_for_network():
+    step_start = time.monotonic()
+    network_available = utils.wait_for_network()
+    logger.info(f"wait_for_network returned {network_available} ({time.monotonic() - step_start:.1f}s)")
+    if network_available:
         logger.info("Network available, starting default app")
+        step_start = time.monotonic()
         supervisor.start_default_app()
+        logger.info(f"start_default_app finished ({time.monotonic() - step_start:.1f}s)")
     else:
         logger.warning("No network connection detected; not starting default app")
+
+    logger.info(f"Startup complete ({time.monotonic() - boot_start:.1f}s total)")
 
     pause()
 
