@@ -6,6 +6,8 @@ import subprocess
 import threading
 import time
 
+from .app_templates import TEMPLATES
+
 logger = logging.getLogger(__name__)
 
 class AppManager:
@@ -15,8 +17,8 @@ class AppManager:
     RESTART_DELAY = 2  # seconds to wait before relaunching an app that exited unexpectedly
     MAX_LOG_BYTES = 5 * 1024 * 1024  # rotate a log past this size, keeping one backup
 
-    def __init__(self, apps, log_dir="logs"):
-        self.apps = apps  # dict: app name -> config, as parsed from apps.yaml
+    def __init__(self, apps, user_home=None, log_dir="logs"):
+        self.apps = self._resolve_apps(apps or {}, user_home or os.path.expanduser('~'))
         self.log_dir = log_dir
         os.makedirs(self.log_dir, exist_ok=True)
 
@@ -25,6 +27,40 @@ class AppManager:
         self._processes = []       # every process (background + main) for the current app
         self._main_process = None  # the tracked/monitored process
         self._generation = 0       # bumped by stop(); invalidates any in-flight restart-monitor
+
+    def _resolve_apps(self, raw_apps, user_home):
+        """Merge each entry with its template (if it references one via `app:`), then
+        substitute {{user_home}}, {{uid}}, and (for templated entries) {{url}}."""
+        resolved = {}
+        for name, entry in raw_apps.items():
+            template_name = entry.get('app')
+            if template_name:
+                template = TEMPLATES.get(template_name)
+                if template is None:
+                    logger.warning(f"App '{name}' references unknown app type '{template_name}'; skipping")
+                    continue
+                merged = {**template, **{k: v for k, v in entry.items() if k != 'app'}}
+            else:
+                merged = dict(entry)
+
+            replacements = {'{{user_home}}': user_home, '{{uid}}': str(os.getuid())}
+            if 'url' in merged:
+                replacements['{{url}}'] = merged['url']
+
+            resolved[name] = self._substitute(merged, replacements)
+        return resolved
+
+    @staticmethod
+    def _substitute(value, replacements):
+        if isinstance(value, str):
+            for placeholder, replacement in replacements.items():
+                value = value.replace(placeholder, replacement)
+            return value
+        if isinstance(value, dict):
+            return {k: AppManager._substitute(v, replacements) for k, v in value.items()}
+        if isinstance(value, list):
+            return [AppManager._substitute(v, replacements) for v in value]
+        return value
 
     def list_apps(self):
         return list(self.apps.keys())

@@ -4,14 +4,14 @@ import os
 from .apps import AppManager
 
 class Supervisor:
-    def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config):
+    def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None):
         self.config = config
         self.ha_client = ha_client
         self.sounds = sounds
         self.tv = tv
         self.utils = utils
         self.settings_store = settings_store
-        self.apps = AppManager((apps_config or {}).get('apps', {}))
+        self.apps = AppManager((apps_config or {}).get('apps', {}), user_home=user_home)
 
     def notify(self, title, message):
         """Send a notification to the desktop."""

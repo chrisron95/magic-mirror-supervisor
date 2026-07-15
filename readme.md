@@ -283,6 +283,15 @@ selects:
 ### **config/apps.yaml**
 This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirror, or anything you add — a game, a photo slideshow, etc.), replacing what used to be separate systemd services for each. See the comments in the file itself for the schema; `supervisor.start_app("name")` and the buttons/selects above are how you trigger one.
 
+An entry can either reference a built-in **app type** via `app: "<type>"` (defined in `app/app_templates.py`) and just supply the instance-specific bits — for the `"kiosk"` type, that's normally just `url` (and `name`) — or define everything directly (`working_directory`, `environment`, `setup`, `background`, `command`, `restart`, `liveness_check`), the way `magicmirror` does. Adding a second kiosk pointed at a different dashboard is just:
+```yaml
+security_cam:
+  app: "kiosk"
+  name: "Security Camera"
+  url: "http://192.168.1.70:8123/dashboard-camera/dashboard"
+```
+Any template field can also be overridden per-instance (e.g. a different `liveness_check` threshold for one specific kiosk). Adding a whole new *type* of app (not just another kiosk instance) means adding a new template to `app/app_templates.py`.
+
 An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `scrot` installed on the Pi.
 
 Each app's stdout/stderr log under `logs/` is capped at `AppManager.MAX_LOG_BYTES` (5 MB by default) and rotated to a single `.1` backup when it's exceeded, so log growth stays bounded regardless of uptime or how chatty an app's console output is.
@@ -329,6 +338,7 @@ magic-mirror-supervisor/
 │   ├── buttons.py                 # GPIO button handling (press/hold)
 │   ├── supervisor.py              # App switching, notifications, default-app selection
 │   ├── apps.py                    # Launches/supervises the apps defined in config/apps.yaml
+│   ├── app_templates.py           # Built-in app types (e.g. "kiosk") apps.yaml entries can reference
 │   ├── home_assistant_client.py   # MQTT/Home Assistant discovery and entity sync
 │   ├── settings_store.py          # Small persisted key/value store (data/settings.yaml)
 │   └── utils.py                   # System stats and system actions (reboot, shutdown, updates)
@@ -349,6 +359,7 @@ magic-mirror-supervisor/
 - **`app/buttons.py`**: Manages physical button interactions via GPIO.
 - **`app/supervisor.py`**: Handles higher-level actions like switching apps, refreshing the kiosk, and stopping apps.
 - **`app/apps.py`**: Starts, stops, and (if configured) auto-restarts the apps defined in `config/apps.yaml` — this is what replaced the old `kiosk.service`/`magicmirror.service` systemd units.
+- **`app/app_templates.py`**: Defines built-in app types (currently just `"kiosk"`) so a new kiosk instance in `apps.yaml` only needs a `url`, not a full copy of the Chromium command/setup/environment.
 - **`app/home_assistant_client.py`**: Manages MQTT communication with Home Assistant, setting up sensors, buttons, switches, and selects.
 - **`app/settings_store.py`**: Persists small bits of runtime-changeable state (like the HA-selected default app) to `data/settings.yaml`, separate from the static `config/` files.
 - **`app/utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), network connectivity checks, and system actions (reboot, shutdown).
