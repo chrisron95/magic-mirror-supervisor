@@ -160,7 +160,7 @@ Before getting started, please ensure the following are already set up:
 
     - Paste the following configuration into the file:
         
-        **Note**: make sure to replace `pi` with your Pi's username if necessary
+        **Note**: replace `pi` with your Pi's username, and `1000` with that user's UID (`id -u <username>`)
 
         ```ini
         [Unit]
@@ -171,7 +171,7 @@ Before getting started, please ensure the following are already set up:
         Type=idle
         ExecStart=/home/pi/magic-mirror-supervisor/.venv/bin/python3 /home/pi/magic-mirror-supervisor/main.py
         Environment=DISPLAY=:0
-        Environment=XDG_RUNTIME_DIR=/run/user/%U
+        Environment=XDG_RUNTIME_DIR=/run/user/1000
         WorkingDirectory=/home/pi/magic-mirror-supervisor
         User=pi
 
