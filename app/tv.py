@@ -35,12 +35,11 @@ class TV:
 
         if detected_input == "Unknown":
             logging.warning("TV input is 'unknown' on startup, switching to rPi")
-            self.internal_input = "rPi"
-            self.set_input("rPi")
+            self.set_input("rPi")  # updates internal_input and publishes itself
         else:
             logging.info(f"TV input detected on startup: {detected_input}")
             self.internal_input = detected_input  # Save valid input
-        self.update_input()  # Update Home Assistant with the detected input
+            self.update_input()  # Update Home Assistant with the detected input
 
     def _run_cec_command(self, cec_command, timeout=None):
         """Run a cec-client command, returning its stdout (empty string on failure/timeout).
