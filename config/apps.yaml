@@ -25,9 +25,9 @@ apps:
 #     overridden per-instance if needed, e.g. to add a second kiosk with its own liveness
 #     thresholds.
 #   - Or define everything directly: `working_directory`, `environment`, `setup`,
-#     `background`, `command`, `restart`, `liveness_check` — see "magicmirror" above.
-# Either way, wire it up to a button/select in entities.yaml the same way "kiosk" and
-# "magicmirror" are. "{{user_home}}" and "{{uid}}" are available anywhere in this file or
+#     `background`, `command`, `restart`, `liveness_check` — see "magicmirror2" above.
+# Either way, wire it up to a button/select in entities.yaml the same way the apps above
+# are. "{{user_home}}" and "{{uid}}" are available anywhere in this file or
 # in a template; templated apps also get "{{url}}" from their own `url:` key. Reference
 # values from config/secrets.yaml anywhere with "{{secrets.<key>}}", e.g. "{{secrets.ha_url}}"
 # above, so things like internal IP addresses don't need to live in this (tracked) file.
