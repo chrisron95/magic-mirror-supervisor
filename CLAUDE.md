@@ -105,7 +105,10 @@ callbacks, not driven from the main thread.
   `ServiceManager` needing to know anything UxPlay-specific. Unlike `AppManager`, `_launch` passes
   `spawn_logged(..., stream_logger=logger, stream_prefix=name)`, so a service's output also lands in
   `journalctl -u magic-mirror-supervisor.service` live, not just its own log file — apps stay file-only
-  since Chromium/MagicMirror console output would be far too chatty for that.
+  since Chromium/MagicMirror console output would be far too chatty for that. "Live" depends on the
+  service's own command being at least line-buffered on its piped stdout — most C programs (UxPlay
+  included) fully block-buffer instead once stdout isn't a terminal, so `services.yaml` commands that
+  want to actually show up in real time may need a `stdbuf -oL -eL` prefix, as UxPlay's does.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus
