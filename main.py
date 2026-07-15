@@ -41,8 +41,19 @@ LOG_LEVEL = getattr(logging, config['log_level'].upper(), logging.DEBUG)
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-# Initialize pygame for audio playback
-pygame.mixer.init()
+# Initialize pygame for audio playback. SDL's default driver autodetection goes through
+# PipeWire/xdg-desktop-portal, which was timing out under this systemd service's
+# environment and dominating startup time; force ALSA directly and fall back to the
+# default only if that fails.
+os.environ.setdefault('SDL_AUDIODRIVER', 'alsa')
+_pygame_init_start = time.monotonic()
+try:
+    pygame.mixer.init()
+except pygame.error:
+    logger.warning("pygame.mixer.init() failed with SDL_AUDIODRIVER=alsa; falling back to SDL's default driver")
+    del os.environ['SDL_AUDIODRIVER']
+    pygame.mixer.init()
+logger.info(f"pygame.mixer initialized ({time.monotonic() - _pygame_init_start:.1f}s)")
 sounds = {
     "test": pygame.mixer.Sound(os.path.join('sounds', "oh-finally-355.mp3"))
 }
