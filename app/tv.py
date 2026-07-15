@@ -10,7 +10,7 @@ class TV:
     def __init__(self, address, ha_client):
         self.address = address
         self.ha_client = ha_client
-        self.lock = threading.Lock()  # serializes power/input commands against overlapping button/MQTT triggers
+        self.lock = threading.RLock()  # serializes all cec-client access; reentrant since command methods hold it across their own status-check calls
 
         # Set a default before checking the actual power status
         self.is_on = False
@@ -43,19 +43,21 @@ class TV:
         self.update_input()  # Update Home Assistant with the detected input
 
     def _run_cec_command(self, cec_command, timeout=None):
-        """Run a cec-client command, returning its stdout (empty string on failure/timeout)."""
+        """Run a cec-client command, returning its stdout (empty string on failure/timeout).
+        Serialized via self.lock — concurrent invocations stall each other out."""
         timeout = timeout or self.CEC_TIMEOUT
-        try:
-            return subprocess.run(
-                f"echo '{cec_command}' | cec-client -s -d 1",
-                shell=True, capture_output=True, text=True, timeout=timeout
-            ).stdout
-        except subprocess.TimeoutExpired:
-            logging.error(f"cec-client command '{cec_command}' timed out after {timeout}s")
-            return ""
-        except subprocess.CalledProcessError as e:
-            logging.error(f"cec-client command '{cec_command}' failed: {e}")
-            return ""
+        with self.lock:
+            try:
+                return subprocess.run(
+                    f"echo '{cec_command}' | cec-client -s -d 1",
+                    shell=True, capture_output=True, text=True, timeout=timeout
+                ).stdout
+            except subprocess.TimeoutExpired:
+                logging.error(f"cec-client command '{cec_command}' timed out after {timeout}s")
+                return ""
+            except subprocess.CalledProcessError as e:
+                logging.error(f"cec-client command '{cec_command}' failed: {e}")
+                return ""
 
     def check_power_status(self):
         """Check if the TV is on or in standby and update Home Assistant."""
@@ -74,7 +76,7 @@ class TV:
 
         # Update the Home Assistant switch with the power status
         if self.ha_client:
-            self.ha_client.update_switch("tv_power", "ON" if power_status else "OFF")
+            self.ha_client.update_switch("tv_power_switch", "ON" if power_status else "OFF")
             self.ha_client.update_binary_sensor("tv_power", power_status)
 
         # Store the power status in the instance variable

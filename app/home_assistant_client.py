@@ -112,7 +112,6 @@ class HomeAssistantClient:
                 binary_sensor.set_availability(True)
                 setattr(self, f"{sensor['unique_id']}_entity", binary_sensor)
                 self._shared_entities.append(binary_sensor)
-                self.update_binary_sensor(sensor['unique_id'], False)
 
                 # Resolve and set the initial state
                 state_method = sensor.get('state')
@@ -130,12 +129,13 @@ class HomeAssistantClient:
                     except AttributeError as e:
                         logger.error(f"Error resolving state method {state_method} for sensor {sensor['unique_id']}: {e}")
 
-                # Set the sensor state or log a warning if state is None
+                # Set the sensor state, falling back to False if it couldn't be resolved
                 if state is not None:
                     binary_sensor.update_state(state)
                     logger.info(f"Sensor {sensor['unique_id']} initialized with state: {state}")
                 else:
-                    logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved")
+                    binary_sensor.update_state(False)
+                    logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved; defaulting to False")
             except Exception as e:
                 logger.warning(f"Failed to set up binary sensor {sensor.get('unique_id')}: {e}")
 
