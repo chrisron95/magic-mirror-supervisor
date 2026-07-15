@@ -1,11 +1,11 @@
 apps:
-  kiosk:
+  homeassistant_mirror_dashboard:
     app: "kiosk"
-    name: "Home Assistant Kiosk"
+    name: "Home Assistant Mirror Dashboard"
     url: "{{secrets.ha_url}}/dashboard-magicmirror/dashboard"
 
-  magicmirror:
-    name: "Magic Mirror"
+  magicmirror2:
+    name: "MagicMirror2"
     working_directory: "{{user_home}}/MagicMirror"
     command: "/usr/bin/npm start"
     restart: true
