@@ -40,11 +40,11 @@ class AppManager:
         for name, entry in raw_apps.items():
             template_name = entry.get('app')
             if template_name:
-                template = TEMPLATES.get(template_name)
-                if template is None:
+                template_fn = TEMPLATES.get(template_name)
+                if template_fn is None:
                     logger.warning(f"App '{name}' references unknown app type '{template_name}'; skipping")
                     continue
-                merged = {**template, **{k: v for k, v in entry.items() if k != 'app'}}
+                merged = template_fn({k: v for k, v in entry.items() if k != 'app'})
             else:
                 merged = dict(entry)
 

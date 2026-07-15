@@ -290,7 +290,7 @@ security_cam:
   name: "Security Camera"
   url: "http://192.168.1.70:8123/dashboard-camera/dashboard"
 ```
-Any template field can also be overridden per-instance (e.g. a different `liveness_check` threshold for one specific kiosk). Adding a whole new *type* of app (not just another kiosk instance) means adding a new template to `app/app_templates.py`.
+Any template field can also be overridden per-instance (e.g. a different `liveness_check` threshold for one specific kiosk). The `"kiosk"` type also accepts `show_navigation: true` to keep Chromium's omnibox/back/forward/reload UI visible (it's hidden by default via `--kiosk`). Adding a whole new *type* of app (not just another kiosk instance) means adding a new template to `app/app_templates.py`.
 
 An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `scrot` installed on the Pi.
 

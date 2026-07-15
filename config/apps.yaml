@@ -4,6 +4,12 @@ apps:
     name: "Home Assistant Mirror Dashboard"
     url: "{{secrets.ha_url}}/dashboard-magicmirror/dashboard"
 
+  google_kiosk:
+    app: "kiosk"
+    name: "Google Kiosk"
+    url: "https://www.google.com"
+    show_navigation: true
+
   magicmirror2:
     name: "MagicMirror2"
     working_directory: "{{user_home}}/MagicMirror"
@@ -13,6 +19,8 @@ apps:
 # Two ways to add an app here:
 #   - Reference a built-in type via `app: "<type>"` (see app/app_templates.py) and just
 #     provide type-specific overrides — for "kiosk" that's usually just `url` (see above).
+#     "kiosk" also takes `show_navigation: true` to keep Chromium's omnibox/back/forward/
+#     reload UI visible instead of hiding it via --kiosk (default false).
 #     Any other template field (setup/background/command/liveness_check/etc.) can also be
 #     overridden per-instance if needed, e.g. to add a second kiosk with its own liveness
 #     thresholds.
