@@ -4,6 +4,7 @@ import os
 from .apps import AppManager
 
 NONE_APP_OPTION = "No Startup App"  # sentinel for the default_app select's "don't auto-start anything" option
+NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app is running
 
 # "None" is deliberately avoided above: Home Assistant's MQTT integration treats a state
 # payload of the literal string "None" as a reserved sentinel meaning "reset to unknown",
@@ -34,6 +35,7 @@ class Supervisor:
         logging.info(f"Starting {display_name}")
         self.notify("App Starting...", display_name)
         self.apps.start(name)
+        self._notify_current_app()
 
     def switch_apps(self):
         """Cycle to the next app configured in apps.yaml."""
@@ -81,10 +83,29 @@ class Supervisor:
         self.notify("Refreshing Screen", "Screen refreshed")
         os.system("xdotool key F5")
 
+    def get_current_app_display_name(self):
+        """Display name of the currently running app, for the "Current App" sensor."""
+        name = self.apps.current_app
+        if not name:
+            return NO_APP_RUNNING
+        return self.apps.apps.get(name, {}).get('name', name)
+
+    def _notify_current_app(self):
+        """Push the currently running app to the "Current App" sensor and "App Switcher"
+        select. The switcher has no "nothing running" option (see entities.yaml), so it's
+        left showing the last started app when everything is stopped."""
+        if not self.ha_client:
+            return
+        self.ha_client.update_sensor("current_app", self.get_current_app_display_name())
+        current_key = self.apps.current_app
+        if current_key:
+            self.ha_client.update_select("app_switcher", current_key)
+
     def stop_all_apps(self):
         """Stop whichever app is currently running."""
         self.notify("Button Handler", "All applications stopped")
         self.apps.stop()
+        self._notify_current_app()
 
     def sample(self):
         self.notify("Hello", "You found the secret button")

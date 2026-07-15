@@ -44,6 +44,11 @@ sensors:
     state: "tv.update_input"
     icon: "mdi:import"
 
+  - name: "Current App"
+    unique_id: "current_app"
+    state: "supervisor.get_current_app_display_name"
+    icon: "mdi:application"
+
 buttons:
   - name: "Reboot"
     unique_id: "reboot"
@@ -136,3 +141,15 @@ selects:
     callback: "set_default_app"
     entity_category: "config"
     icon: "mdi:application-cog"
+
+  - name: "App Switcher"
+    unique_id: "app_switcher"
+    # "{{apps}}" auto-populates the options from apps.yaml, showing each app's `name`
+    # (not its key) — unlike "{{apps_all}}" above, there's no "no app" option since
+    # switching to "nothing" isn't a meaningful action here.
+    options: "{{apps}}"
+    # Reflects (and controls) the app that's actually running right now, not a persisted
+    # preference, so there's no default_option — it starts unset and follows whatever app
+    # is started (via this select, a button, or supervisor.switch_apps).
+    callback: "start_app"
+    icon: "mdi:apps"

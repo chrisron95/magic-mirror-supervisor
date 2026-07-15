@@ -8,6 +8,7 @@ from .supervisor import NONE_APP_OPTION
 logger = logging.getLogger(__name__)
 
 APPS_ALL_OPTIONS = "{{apps_all}}"  # entities.yaml select `options:` shorthand — see _apps_all_options()
+APPS_OPTIONS = "{{apps}}"  # entities.yaml select `options:` shorthand — see _apps_options()
 
 class HomeAssistantClient:
     def __init__(self, broker, port, username, password, config, entities, supervisor, tv, utils):
@@ -171,21 +172,33 @@ class HomeAssistantClient:
                 logger.error(f"Callback method not found: {e}")
         return callback
     
-    def _apps_all_options(self):
-        """Build the options list and canonical<->display maps for a select using the
-        "{{apps_all}}" options shorthand: a NONE_APP_OPTION option (meaning "don't
-        auto-start anything") followed by each configured app's display `name` (falling
-        back to its apps.yaml key if it has none). Callbacks receive the app's key (or
-        NONE_APP_OPTION), not the display name shown in HA."""
+    def _build_apps_options(self, include_none_option):
+        """Shared by both the "{{apps_all}}" and "{{apps}}" options shorthands: build the
+        options list and canonical<->display maps from apps.yaml, using each app's display
+        `name` (falling back to its apps.yaml key if it has none). Callbacks receive the
+        app's key (or NONE_APP_OPTION), not the display name shown in HA."""
         apps = self.supervisor.apps.apps
-        to_display = {NONE_APP_OPTION: NONE_APP_OPTION}
-        to_canonical = {NONE_APP_OPTION: NONE_APP_OPTION}
+        to_display = {}
+        to_canonical = {}
+        if include_none_option:
+            to_display[NONE_APP_OPTION] = NONE_APP_OPTION
+            to_canonical[NONE_APP_OPTION] = NONE_APP_OPTION
         for key, app_config in apps.items():
             display = app_config.get('name', key)
             to_display[key] = display
             to_canonical[display] = key
-        options = [NONE_APP_OPTION] + [to_display[key] for key in apps.keys()]
+        options = ([NONE_APP_OPTION] if include_none_option else []) + [to_display[key] for key in apps.keys()]
         return options, to_canonical, to_display
+
+    def _apps_all_options(self):
+        """"{{apps_all}}": a NONE_APP_OPTION option (meaning "don't auto-start anything")
+        followed by every configured app. Used by selects like the default startup app."""
+        return self._build_apps_options(include_none_option=True)
+
+    def _apps_options(self):
+        """"{{apps}}": just the configured apps, no "none" option. Used by selects where
+        every option must correspond to an actually-running app, like the app switcher."""
+        return self._build_apps_options(include_none_option=False)
 
     def _to_display(self, unique_id, canonical_value):
         return self._select_maps.get(unique_id, {}).get('to_display', {}).get(canonical_value, canonical_value)
@@ -199,9 +212,11 @@ class HomeAssistantClient:
                 unique_id = select['unique_id']
                 raw_options = select['options']
                 uses_apps_all = raw_options == APPS_ALL_OPTIONS
+                uses_apps = raw_options == APPS_OPTIONS
+                uses_apps_shorthand = uses_apps_all or uses_apps
 
-                if uses_apps_all:
-                    options, to_canonical, to_display = self._apps_all_options()
+                if uses_apps_shorthand:
+                    options, to_canonical, to_display = self._apps_all_options() if uses_apps_all else self._apps_options()
                     self._select_maps[unique_id] = {'to_canonical': to_canonical, 'to_display': to_display}
                 else:
                     options = raw_options
@@ -238,7 +253,7 @@ class HomeAssistantClient:
                 # A persisted value that's no longer valid (e.g. an app key from before it
                 # was renamed in apps.yaml) would publish a state outside the entity's
                 # declared `options`, which HA shows as "unknown" — fall back instead.
-                valid_values = set(to_display.keys()) if uses_apps_all else set(options)
+                valid_values = set(to_display.keys()) if uses_apps_shorthand else set(options)
                 current_value = self.supervisor.settings_store.get(unique_id, default_option)
                 if current_value not in valid_values:
                     if current_value is not None:
