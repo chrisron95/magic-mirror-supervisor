@@ -125,7 +125,7 @@ def main():
 
     # Start any autostart: true services (e.g. UxPlay) — independent of the default app,
     # and not gated on network like it is, since these don't need the MQTT broker to run.
-    supervisor.services.start_autostart()
+    supervisor.start_autostart_services()
     logger.info("Autostart services started")
 
     # Initialize Home Assistant Client

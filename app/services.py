@@ -26,6 +26,8 @@ class ServiceManager:
         self._lock = threading.RLock()
         self._running = {}     # name -> subprocess.Popen, present only while actually running
         self._generation = {}  # name -> int; bumped by stop() to stand down any in-flight monitor
+        self._extra_args = {}  # name -> extra CLI args appended to the base command, set by start()
+                                # and preserved across auto-restarts (e.g. UxPlay's rotation flag)
 
     def _resolve_services(self, raw_services, user_home, secrets):
         """Substitute {{user_home}}, {{uid}}, {{secrets.<key>}} — same placeholders
@@ -55,7 +57,9 @@ class ServiceManager:
             process = self._running.get(name)
             return process is not None and process.poll() is None
 
-    def start(self, name):
+    def start(self, name, extra_args=""):
+        """`extra_args`, if given, is appended to the service's base command for this run
+        (and any auto-restarts of it) — e.g. UxPlay's `-r R` rotation flag."""
         if name not in self.services:
             logger.warning(f"Unknown service '{name}'; not starting")
             return
@@ -63,6 +67,7 @@ class ServiceManager:
             if self.is_running(name):
                 logger.info(f"Service '{name}' already running")
                 return
+            self._extra_args[name] = extra_args
             self._generation[name] = self._generation.get(name, 0) + 1  # stand down any stale monitor
             self._launch(name)
 
@@ -97,6 +102,9 @@ class ServiceManager:
         if not command:
             logger.warning(f"Service '{name}' has no command defined")
             return
+        extra_args = self._extra_args.get(name)
+        if extra_args:
+            command = f"{command} {extra_args}"
 
         logger.info(f"[{name}] command: {command}")
         log_path = os.path.join(self.log_dir, f"{name}.log")

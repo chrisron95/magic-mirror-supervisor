@@ -185,3 +185,13 @@ selects:
     default_option: "Nothing Running"
     callback: "switch_to_app"
     icon: "mdi:apps"
+
+  - name: "AirPlay Orientation"
+    unique_id: "uxplay_rotation"
+    # Must match app/supervisor.py's UXPLAY_ROTATION_OPTIONS keys exactly. Changing this
+    # restarts AirPlay immediately if it's currently running (UxPlay only applies rotation
+    # at launch), otherwise it just takes effect the next time AirPlay starts.
+    options: ["Normal", "Rotate Right", "Rotate Left", "Upside Down"]
+    default_option: "Normal"
+    callback: "set_uxplay_rotation"
+    icon: "mdi:screen-rotation"

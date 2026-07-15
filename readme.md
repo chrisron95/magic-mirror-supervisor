@@ -339,6 +339,8 @@ Any number of services can run at the same time as each other and as whatever ap
 
 A service is wired up to Home Assistant as a `switch` in `entities.yaml` (see the "AirPlay" switch there) — its `unique_id` must match the service's key here, since `Supervisor` uses that to look up and push state changes back. There isn't a fully generic callback for this yet: adding a second independent service means adding a small `start_<name>`/`stop_<name>`/`is_<name>_running` trio to `app/supervisor.py`, mirroring `start_uxplay`/`stop_uxplay`/`is_uxplay_running`.
 
+**AirPlay screen orientation**: if you ever take the mirror off the wall and lay it flat, the "AirPlay Orientation" select in Home Assistant (`Normal`/`Rotate Right`/`Rotate Left`/`Upside Down`) restarts UxPlay with its `-r`/`-f` rotation flags — UxPlay only applies these at launch, so there's no live/mid-stream rotation, but changing the select restarts it immediately if it's already running. The choice is persisted (`data/settings.yaml`) and re-applied on every future start, including autostart at boot.
+
 ---
 
 ## Usage
@@ -359,6 +361,7 @@ A service is wired up to Home Assistant as a `switch` in `entities.yaml` (see th
     - **Switches**: Control TV power, and toggle independent background services like AirPlay (UxPlay) on/off.
     - **Sensors**: Monitor system stats like IP address, CPU temperature, memory usage, and Pi/Supervisor uptime.
     - **Buttons**: Trigger actions like reboot, shutdown, or app switching.
+    - **Selects**: Pick the default startup app, switch between running apps, or rotate the AirPlay orientation.
 
 3. **Control via Physical Buttons**:
 

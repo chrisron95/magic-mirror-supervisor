@@ -99,7 +99,10 @@ callbacks, not driven from the main thread.
   as `AppManager`. An optional `on_state_change(name, running)` callback — `Supervisor` wires this to
   `HomeAssistantClient.update_switch(name, ...)` — fires on every start/stop, including auto-restarts,
   so a service's HA switch (`unique_id` == the service's `services.yaml` key) stays in sync without
-  polling.
+  polling. `start(name, extra_args=...)` appends extra CLI args to the configured `command` for that
+  run *and* any auto-restarts of it (stored in `_extra_args[name]`, not passed to `_launch` each time) —
+  this is how `Supervisor.start_uxplay` applies the persisted rotation flag (`-r R`/`-r L`/`-f I`) without
+  `ServiceManager` needing to know anything UxPlay-specific.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus
@@ -120,6 +123,10 @@ callbacks, not driven from the main thread.
   methods (e.g. `start_uxplay`/`stop_uxplay`/`is_uxplay_running`, delegating to `ServiceManager`) since
   HA switch callbacks in `entities.yaml` are zero-argument dotted paths — adding another independent
   service means adding both a `services.yaml` entry and one more such wrapper trio here.
+  `start_autostart_services()` (called once from `main.py`, not gated on network) is the general path
+  for `autostart: true` services, but special-cases `uxplay` to go through `start_uxplay()` — otherwise
+  the persisted rotation (`UXPLAY_ROTATION_OPTIONS`, set via `set_uxplay_rotation`/the "AirPlay
+  Orientation" select, persisted in `data/settings.yaml`) would be silently dropped on every boot.
 
 - **`app/home_assistant_client.py`** (`HomeAssistantClient`) — MQTT discovery/sync via
   `ha-mqtt-discoverable`. Two connection strategies coexist: `BinarySensor`/`Sensor` reuse one shared

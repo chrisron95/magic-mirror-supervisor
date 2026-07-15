@@ -16,6 +16,14 @@ NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app i
 
 UPTIME_REFRESH_INTERVAL = 30  # seconds between uptime sensor/attribute refreshes
 
+# Display name -> UxPlay CLI flag(s). "Normal" maps to no extra args at all.
+UXPLAY_ROTATION_OPTIONS = {
+    "Normal": "",
+    "Rotate Right": "-r R",
+    "Rotate Left": "-r L",
+    "Upside Down": "-f I",
+}
+
 class Supervisor:
     def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None, services_config=None):
         self.config = config
@@ -160,13 +168,44 @@ class Supervisor:
         self.ha_client.update_switch(name, "ON" if running else "OFF")
 
     def start_uxplay(self):
-        self.services.start("uxplay")
+        rotation = self.get_uxplay_rotation()
+        self.services.start("uxplay", extra_args=UXPLAY_ROTATION_OPTIONS[rotation])
 
     def stop_uxplay(self):
         self.services.stop("uxplay")
 
     def is_uxplay_running(self):
         return self.services.is_running("uxplay")
+
+    def get_uxplay_rotation(self):
+        """Persisted AirPlay screen orientation (a UXPLAY_ROTATION_OPTIONS key)."""
+        return self.settings_store.get("uxplay_rotation", "Normal")
+
+    def set_uxplay_rotation(self, value):
+        """Persist the selected orientation, and — if AirPlay is currently running —
+        restart it immediately so the new rotation actually takes effect (UxPlay only
+        applies it at launch, there's no live/in-stream way to change it)."""
+        if value not in UXPLAY_ROTATION_OPTIONS:
+            logging.warning(f"Ignoring invalid uxplay rotation selection: {value}")
+            return
+        self.settings_store.set("uxplay_rotation", value)
+        if self.ha_client:
+            self.ha_client.update_select("uxplay_rotation", value)
+        if self.services.is_running("uxplay"):
+            self.stop_uxplay()
+            self.start_uxplay()
+
+    def start_autostart_services(self):
+        """Start every `autostart: true` service in services.yaml. UxPlay specifically
+        goes through start_uxplay() so it launches with the persisted rotation rather
+        than the bare command — extend this if another service needs similar treatment."""
+        for name in self.services.list_services():
+            if not self.services.services.get(name, {}).get('autostart'):
+                continue
+            if name == "uxplay":
+                self.start_uxplay()
+            else:
+                self.services.start(name)
 
     def sample(self):
         self.notify("Hello", "You found the secret button")

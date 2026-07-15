@@ -19,4 +19,4 @@ services:
 # "{{user_home}}", "{{uid}}", and "{{secrets.<key>}}" are available here the same as in
 # apps.yaml. Wire a service up to a switch in entities.yaml via dedicated Supervisor
 # methods (see start_uxplay/stop_uxplay/is_uxplay_running in app/supervisor.py) — add a
-# matching pair of methods there for any additional service you add here.
+# matching trio of methods there for any additional service you add here.
