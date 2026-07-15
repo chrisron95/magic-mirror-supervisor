@@ -96,7 +96,11 @@ callbacks, not driven from the main thread.
   keeping the "Current App" sensor / "App Switcher" select in HA in sync via `_notify_current_app`.
   `NONE_APP_OPTION` ("No Startup App") and `NO_APP_RUNNING` ("Nothing Running") are deliberately not the
   literal string `"None"` — HA's MQTT integration treats that as a reserved "reset to unknown" sentinel,
-  not a selectable value.
+  not a selectable value. A single long-lived `_uptime_loop` thread (started in `__init__`, not per
+  app launch) refreshes the "Current App" sensor's `uptime` attribute every `UPTIME_REFRESH_INTERVAL`
+  seconds via `HomeAssistantClient.update_sensor_attributes` — it just reads `AppManager.get_uptime_seconds()`
+  fresh each tick, so it self-heals after a crash/liveness restart without needing AppManager to call
+  back into it. This is the only polling loop in the codebase; everything else pushes on change.
 
 - **`app/home_assistant_client.py`** (`HomeAssistantClient`) — MQTT discovery/sync via
   `ha-mqtt-discoverable`. Two connection strategies coexist: `BinarySensor`/`Sensor` reuse one shared

@@ -432,6 +432,15 @@ class HomeAssistantClient:
         else:
             logger.warning(f"Sensor with unique_id {unique_id} not found.")
 
+    def update_sensor_attributes(self, unique_id, attributes):
+        """Publish extra state attributes for a sensor (e.g. "uptime" on "current_app"),
+        shown in HA alongside its normal state."""
+        sensor = getattr(self, f"{unique_id}_entity", None)
+        if sensor:
+            sensor.set_attributes(attributes)
+        else:
+            logger.warning(f"Sensor with unique_id {unique_id} not found.")
+
     def update_select(self, unique_id, value):
         select_entity = getattr(self, f"{unique_id}_entity", None)
         if select_entity:

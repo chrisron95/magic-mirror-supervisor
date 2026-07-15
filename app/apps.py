@@ -27,6 +27,7 @@ class AppManager:
         self._processes = []       # every process (background + main) for the current app
         self._main_process = None  # the tracked/monitored process
         self._generation = 0       # bumped by stop(); invalidates any in-flight restart-monitor
+        self._start_time = None    # monotonic timestamp of the current process instance's launch
 
     def _resolve_apps(self, raw_apps, user_home, secrets):
         """Merge each entry with its template (if it references one via `app:`), then
@@ -78,6 +79,14 @@ class AppManager:
     def current_app(self):
         return self._current_name
 
+    def get_uptime_seconds(self):
+        """Seconds since the current process instance was launched, or None if nothing's
+        running. Resets on any relaunch, including an automatic crash/liveness restart —
+        this tracks the running instance, not how long an app has been "selected"."""
+        if self._start_time is None:
+            return None
+        return time.monotonic() - self._start_time
+
     def start(self, name):
         """Stop whatever's running, then launch the named app."""
         if name not in self.apps:
@@ -94,6 +103,7 @@ class AppManager:
             self._generation += 1  # tells any in-flight restart-monitor to stand down
             if not self._processes:
                 self._current_name = None
+                self._start_time = None
                 return
 
             logger.info(f"Stopping app '{self._current_name}'")
@@ -103,6 +113,7 @@ class AppManager:
             self._processes = []
             self._main_process = None
             self._current_name = None
+            self._start_time = None
 
     def _launch(self, name):
         app = self.apps[name]
@@ -132,6 +143,7 @@ class AppManager:
         self._current_name = name
         self._processes = processes
         self._main_process = main_process
+        self._start_time = time.monotonic()
 
         generation = self._generation
         if main_process and app.get('restart', True):
