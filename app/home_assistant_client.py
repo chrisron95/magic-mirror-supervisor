@@ -1,3 +1,4 @@
+import concurrent.futures
 import paho.mqtt.client as mqtt
 import time
 import logging
@@ -78,14 +79,18 @@ class HomeAssistantClient:
     def setup_discovery(self):
         if 'binary_sensors' in self.entities and len(self.entities['binary_sensors']) > 0:
             self.setup_binary_sensors()
-        if 'buttons' in self.entities and len(self.entities['buttons']) > 0:
-            self.setup_buttons()
         if 'sensors' in self.entities and len(self.entities['sensors']) > 0:
             self.setup_sensors()
-        if 'switches' in self.entities and len(self.entities['switches']) > 0:
-            self.setup_switches()
-        if 'selects' in self.entities and len(self.entities['selects']) > 0:
-            self.setup_selects()
+
+        # Each entity below opens its own MQTT connection and is independent of the others,
+        # so set them up concurrently rather than paying for each connect handshake in turn.
+        jobs = [(self._setup_button, button) for button in self.entities.get('buttons', [])]
+        jobs += [(self._setup_switch, switch) for switch in self.entities.get('switches', [])]
+        jobs += [(self._setup_select, select) for select in self.entities.get('selects', [])]
+        if jobs:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(jobs)) as executor:
+                futures = [executor.submit(setup_fn, entity) for setup_fn, entity in jobs]
+                concurrent.futures.wait(futures)
 
     def setup_binary_sensors(self):
         for sensor in self.entities['binary_sensors']:
@@ -134,29 +139,28 @@ class HomeAssistantClient:
             except Exception as e:
                 logger.warning(f"Failed to set up binary sensor {sensor.get('unique_id')}: {e}")
 
-    def setup_buttons(self):
-        for button in self.entities['buttons']:
-            try:
-                button_info = ButtonInfo(
-                    name=button['name'],
-                    device=self.device_info,
-                    unique_id=button['unique_id'],
-                    icon=button.get('icon', None),
-                    device_class=button.get('device_class', None),       # https://www.home-assistant.io/integrations/button/#device-class
-                    entity_category=button.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
-                    enabled_by_default=button.get('enabled_by_default', None),
-                    retain=button.get('retain', None),
-                    expire_after=self.config.get('expire_after', None),
-                    force_update=True
-                )
-                button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
-                button_entity = Button(button_settings, self.create_button_callback(button['callback'], button.get('args')))
-                button_entity.write_config()
-                button_entity.set_availability(True)
-                self._rebroadcast_availability_on_reconnect(button_entity)
-                setattr(self, f"{button['unique_id']}_entity", button_entity)
-            except Exception as e:
-                logger.warning(f"Failed to set up button {button.get('unique_id')}: {e}")
+    def _setup_button(self, button):
+        try:
+            button_info = ButtonInfo(
+                name=button['name'],
+                device=self.device_info,
+                unique_id=button['unique_id'],
+                icon=button.get('icon', None),
+                device_class=button.get('device_class', None),       # https://www.home-assistant.io/integrations/button/#device-class
+                entity_category=button.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=button.get('enabled_by_default', None),
+                retain=button.get('retain', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=True
+            )
+            button_settings = Settings(mqtt=self.mqtt_settings, entity=button_info, manual_availability=True)
+            button_entity = Button(button_settings, self.create_button_callback(button['callback'], button.get('args')))
+            button_entity.write_config()
+            button_entity.set_availability(True)
+            self._rebroadcast_availability_on_reconnect(button_entity)
+            setattr(self, f"{button['unique_id']}_entity", button_entity)
+        except Exception as e:
+            logger.warning(f"Failed to set up button {button.get('unique_id')}: {e}")
 
     def create_button_callback(self, method_name, args=None):
         def callback(client, userdata, message):
@@ -208,64 +212,63 @@ class HomeAssistantClient:
     def _to_canonical(self, unique_id, display_value):
         return self._select_maps.get(unique_id, {}).get('to_canonical', {}).get(display_value, display_value)
 
-    def setup_selects(self):
-        for select in self.entities['selects']:
-            try:
-                unique_id = select['unique_id']
-                raw_options = select['options']
-                uses_apps_all = raw_options == APPS_ALL_OPTIONS
-                uses_apps = raw_options == APPS_OPTIONS
-                uses_apps_shorthand = uses_apps_all or uses_apps
+    def _setup_select(self, select):
+        try:
+            unique_id = select['unique_id']
+            raw_options = select['options']
+            uses_apps_all = raw_options == APPS_ALL_OPTIONS
+            uses_apps = raw_options == APPS_OPTIONS
+            uses_apps_shorthand = uses_apps_all or uses_apps
 
-                if uses_apps_shorthand:
-                    options, to_canonical, to_display = self._apps_all_options() if uses_apps_all else self._apps_options()
-                    self._select_maps[unique_id] = {'to_canonical': to_canonical, 'to_display': to_display}
-                else:
-                    options = raw_options
+            if uses_apps_shorthand:
+                options, to_canonical, to_display = self._apps_all_options() if uses_apps_all else self._apps_options()
+                self._select_maps[unique_id] = {'to_canonical': to_canonical, 'to_display': to_display}
+            else:
+                options = raw_options
 
-                # entities.yaml's default_option (if any) is a canonical value (an app key,
-                # or NONE_APP_OPTION) and wins if set. Otherwise, a "{{apps_all}}" select
-                # falls back to whatever config.yaml's default_app actually is — the app
-                # that will really auto-start — so the select reflects reality instead of
-                # showing a generic "nothing selected" placeholder.
-                default_option = select.get('default_option')
-                if default_option is None and uses_apps_all:
-                    default_option = self.supervisor.config.get('default_app') or NONE_APP_OPTION
+            # entities.yaml's default_option (if any) is a canonical value (an app key,
+            # or NONE_APP_OPTION) and wins if set. Otherwise, a "{{apps_all}}" select
+            # falls back to whatever config.yaml's default_app actually is — the app
+            # that will really auto-start — so the select reflects reality instead of
+            # showing a generic "nothing selected" placeholder.
+            default_option = select.get('default_option')
+            if default_option is None and uses_apps_all:
+                default_option = self.supervisor.config.get('default_app') or NONE_APP_OPTION
 
-                select_info = SelectInfo(
-                    name=select['name'],
-                    device=self.device_info,
-                    unique_id=unique_id,
-                    options=options,
-                    icon=select.get('icon', None),
-                    entity_category=select.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
-                    enabled_by_default=select.get('enabled_by_default', None),
-                    retain=select.get('retain', None),
-                    expire_after=self.config.get('expire_after', None),
-                    force_update=True
-                )
-                select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
-                select_entity = Select(select_settings, self.create_select_callback(select['callback'], unique_id))
-                select_entity.write_config()
-                select_entity.set_availability(True)
-                self._rebroadcast_availability_on_reconnect(select_entity)
-                setattr(self, f"{unique_id}_entity", select_entity)
+            select_info = SelectInfo(
+                name=select['name'],
+                device=self.device_info,
+                unique_id=unique_id,
+                options=options,
+                icon=select.get('icon', None),
+                entity_category=select.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=select.get('enabled_by_default', None),
+                retain=select.get('retain', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=True
+            )
+            select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
+            select_entity = Select(select_settings, self.create_select_callback(select['callback'], unique_id))
+            select_entity.write_config()
+            select_entity.set_availability(True)
+            self._rebroadcast_availability_on_reconnect(select_entity)
+            setattr(self, f"{unique_id}_entity", select_entity)
 
-                # Persisted setting (if any) wins over the entities.yaml fallback default.
-                # A persisted value that's no longer valid (e.g. an app key from before it
-                # was renamed in apps.yaml) would publish a state outside the entity's
-                # declared `options`, which HA shows as "unknown" — fall back instead.
-                valid_values = set(to_display.keys()) if uses_apps_shorthand else set(options)
-                current_value = self.supervisor.settings_store.get(unique_id, default_option)
-                if current_value not in valid_values:
-                    if current_value is not None:
-                        logger.warning(f"Persisted value '{current_value}' for select '{unique_id}' is no longer valid; falling back to '{default_option}'")
-                    current_value = default_option
+            # Persisted setting (if any) wins over the entities.yaml fallback default.
+            # A persisted value that's no longer valid (e.g. an app key from before it
+            # was renamed in apps.yaml) would publish a state outside the entity's
+            # declared `options`, which HA shows as "unknown" — fall back instead.
+            valid_values = set(to_display.keys()) if uses_apps_shorthand else set(options)
+            current_value = self.supervisor.settings_store.get(unique_id, default_option)
+            if current_value not in valid_values:
+                if current_value is not None:
+                    logger.warning(f"Persisted value '{current_value}' for select '{unique_id}' is no longer valid; falling back to '{default_option}'")
+                current_value = default_option
 
-                if current_value:
-                    select_entity.set_options(self._to_display(unique_id, current_value))
-            except Exception as e:
-                logger.warning(f"Failed to set up select {select.get('unique_id')}: {e}")
+            if current_value:
+                select_entity.set_options(self._to_display(unique_id, current_value))
+        except Exception as e:
+            logger.warning(f"Failed to set up select {select.get('unique_id')}: {e}")
 
     def create_select_callback(self, method_name, unique_id):
         def callback(client, userdata, message):
@@ -326,53 +329,52 @@ class HomeAssistantClient:
             except Exception as e:
                 logger.warning(f"Failed to set up sensor {sensor.get('unique_id')}: {e}")
 
-    def setup_switches(self):
-        for switch in self.entities['switches']:
-            try:
-                switch_info = SwitchInfo(
-                    name=switch['name'],
-                    device=self.device_info,
-                    unique_id=switch['unique_id'],
-                    icon=switch.get('icon', None),
-                    device_class=switch.get('device_class', None),       # https://www.home-assistant.io/integrations/switch/#device-class
-                    entity_category=switch.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
-                    enabled_by_default=switch.get('enabled_by_default', None),
-                    retain=switch.get('retain', None),
-                    expire_after=self.config.get('expire_after', None),
-                    force_update=True
-                )
-                switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info, manual_availability=True)
-                switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
-                switch_entity.write_config()
-                switch_entity.set_availability(True)
-                self._rebroadcast_availability_on_reconnect(switch_entity)
-                setattr(self, f"{switch['unique_id']}_entity", switch_entity)
+    def _setup_switch(self, switch):
+        try:
+            switch_info = SwitchInfo(
+                name=switch['name'],
+                device=self.device_info,
+                unique_id=switch['unique_id'],
+                icon=switch.get('icon', None),
+                device_class=switch.get('device_class', None),       # https://www.home-assistant.io/integrations/switch/#device-class
+                entity_category=switch.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=switch.get('enabled_by_default', None),
+                retain=switch.get('retain', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=True
+            )
+            switch_settings = Settings(mqtt=self.mqtt_settings, entity=switch_info, manual_availability=True)
+            switch_entity = Switch(switch_settings, self.create_switch_callback(switch['on_callback'], switch['off_callback']))
+            switch_entity.write_config()
+            switch_entity.set_availability(True)
+            self._rebroadcast_availability_on_reconnect(switch_entity)
+            setattr(self, f"{switch['unique_id']}_entity", switch_entity)
 
-                # Resolve and set the initial state
-                state_method = switch.get('state')
-                state = None
-                if state_method:
-                    try:
-                        # Resolve dotted paths like "tv.check_power_status"
-                        parts = state_method.split('.')
-                        obj = self
-                        for part in parts:  # Traverse through the parts to resolve the object
-                            obj = getattr(obj, part)
-                        if callable(obj):
-                            state = obj()  # Call the resolved method
-                        else:
-                            logger.warning(f"State method {state_method} is not callable for switch {switch['unique_id']}")
-                    except AttributeError as e:
-                        logger.error(f"Error resolving state method {state_method} for switch {switch['unique_id']}: {e}")
-                        state = False
+            # Resolve and set the initial state
+            state_method = switch.get('state')
+            state = None
+            if state_method:
+                try:
+                    # Resolve dotted paths like "tv.check_power_status"
+                    parts = state_method.split('.')
+                    obj = self
+                    for part in parts:  # Traverse through the parts to resolve the object
+                        obj = getattr(obj, part)
+                    if callable(obj):
+                        state = obj()  # Call the resolved method
+                    else:
+                        logger.warning(f"State method {state_method} is not callable for switch {switch['unique_id']}")
+                except AttributeError as e:
+                    logger.error(f"Error resolving state method {state_method} for switch {switch['unique_id']}: {e}")
+                    state = False
 
-                # Set the switch state based on the resolved state
-                if state:
-                    switch_entity.on()
-                else:
-                    switch_entity.off()
-            except Exception as e:
-                logger.warning(f"Failed to set up switch {switch.get('unique_id')}: {e}")
+            # Set the switch state based on the resolved state
+            if state:
+                switch_entity.on()
+            else:
+                switch_entity.off()
+        except Exception as e:
+            logger.warning(f"Failed to set up switch {switch.get('unique_id')}: {e}")
 
     def create_switch_callback(self, on_callback, off_callback):
         def callback(client: mqtt.Client, userdata, message: mqtt.MQTTMessage):
