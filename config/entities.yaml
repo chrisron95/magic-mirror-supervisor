@@ -50,14 +50,14 @@ sensors:
     icon: "mdi:application"
 
 buttons:
-  - name: "Reboot"
-    unique_id: "reboot"
+  - name: "Reboot Pi"
+    unique_id: "reboot_pi"
     callback: "utils.reboot"
     entity_category: "config"
     device_class: "restart"
 
-  - name: "Shutdown"
-    unique_id: "shutdown"
+  - name: "Shutdown Pi"
+    unique_id: "shutdown_pi"
     callback: "utils.shutdown"
     entity_category: "config"
     icon: "mdi:power-plug-off-outline"
