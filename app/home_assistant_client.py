@@ -173,10 +173,10 @@ class HomeAssistantClient:
     
     def _apps_all_options(self):
         """Build the options list and canonical<->display maps for a select using the
-        "{{apps_all}}" options shorthand: a "None" option (meaning "don't auto-start
-        anything", stored/passed around as NONE_APP_OPTION) followed by each configured
-        app's display `name` (falling back to its apps.yaml key if it has none). Callbacks
-        receive the app's key (or NONE_APP_OPTION), not the display name shown in HA."""
+        "{{apps_all}}" options shorthand: a NONE_APP_OPTION option (meaning "don't
+        auto-start anything") followed by each configured app's display `name` (falling
+        back to its apps.yaml key if it has none). Callbacks receive the app's key (or
+        NONE_APP_OPTION), not the display name shown in HA."""
         apps = self.supervisor.apps.apps
         to_display = {NONE_APP_OPTION: NONE_APP_OPTION}
         to_canonical = {NONE_APP_OPTION: NONE_APP_OPTION}

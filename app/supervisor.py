@@ -3,7 +3,11 @@ import logging
 import os
 from .apps import AppManager
 
-NONE_APP_OPTION = "None"  # sentinel for the default_app select's "don't auto-start anything" option
+NONE_APP_OPTION = "No Startup App"  # sentinel for the default_app select's "don't auto-start anything" option
+
+# "None" is deliberately avoided above: Home Assistant's MQTT integration treats a state
+# payload of the literal string "None" as a reserved sentinel meaning "reset to unknown",
+# not as a selectable value, so it would never actually display as selected.
 
 class Supervisor:
     def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None):

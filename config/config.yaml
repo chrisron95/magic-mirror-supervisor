@@ -14,7 +14,7 @@ log_level: "INFO"
 
 # Fallback app to auto-start at boot if no network-connected startup has happened yet
 # to save a choice via the "Default Startup App" select in Home Assistant.
-# Must match an app key from apps.yaml. Leave unset/blank (or "None") to disable auto-start entirely.
+# Must match an app key from apps.yaml. Leave unset/blank (or "No Startup App") to disable auto-start entirely.
 default_app: "homeassistant_mirror_dashboard"
 
 # expire_after: 3600
