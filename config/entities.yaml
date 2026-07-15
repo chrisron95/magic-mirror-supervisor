@@ -86,13 +86,13 @@ buttons:
   - name: "Start MagicMirror App"
     unique_id: "start_magicmirror"
     callback: "supervisor.start_app"
-    args: ["magicmirror"]
+    args: ["magicmirror2"]
     icon: "mdi:mirror-rectangle"
 
   - name: "Start Home Assistant"
     unique_id: "start_home_assistant"
     callback: "supervisor.start_app"
-    args: ["kiosk"]
+    args: ["homeassistant_mirror_dashboard"]
     icon: "mdi:home-assistant"
 
   - name: "Stop All Apps"
