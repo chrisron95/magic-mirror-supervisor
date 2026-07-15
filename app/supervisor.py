@@ -92,14 +92,20 @@ class Supervisor:
 
     def _notify_current_app(self):
         """Push the currently running app to the "Current App" sensor and "App Switcher"
-        select. The switcher has no "nothing running" option (see entities.yaml), so it's
-        left showing the last started app when everything is stopped."""
+        select. NO_APP_RUNNING is itself a valid app_switcher option, so it's used as-is
+        when nothing is running."""
         if not self.ha_client:
             return
         self.ha_client.update_sensor("current_app", self.get_current_app_display_name())
-        current_key = self.apps.current_app
-        if current_key:
-            self.ha_client.update_select("app_switcher", current_key)
+        self.ha_client.update_select("app_switcher", self.apps.current_app or NO_APP_RUNNING)
+
+    def switch_to_app(self, name):
+        """Callback for the App Switcher select: starts the given app, or stops whatever's
+        running if NO_APP_RUNNING was selected."""
+        if name == NO_APP_RUNNING:
+            self.stop_all_apps()
+        else:
+            self.start_app(name)
 
     def stop_all_apps(self):
         """Stop whichever app is currently running."""

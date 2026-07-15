@@ -3,7 +3,7 @@ import time
 import logging
 from ha_mqtt_discoverable import Settings, DeviceInfo
 from ha_mqtt_discoverable.sensors import BinarySensor, BinarySensorInfo, Button, ButtonInfo, Switch, SwitchInfo, Sensor, SensorInfo, Select, SelectInfo
-from .supervisor import NONE_APP_OPTION
+from .supervisor import NONE_APP_OPTION, NO_APP_RUNNING
 
 logger = logging.getLogger(__name__)
 
@@ -172,33 +172,35 @@ class HomeAssistantClient:
                 logger.error(f"Callback method not found: {e}")
         return callback
     
-    def _build_apps_options(self, include_none_option):
+    def _build_apps_options(self, none_option):
         """Shared by both the "{{apps_all}}" and "{{apps}}" options shorthands: build the
         options list and canonical<->display maps from apps.yaml, using each app's display
-        `name` (falling back to its apps.yaml key if it has none). Callbacks receive the
-        app's key (or NONE_APP_OPTION), not the display name shown in HA."""
+        `name` (falling back to its apps.yaml key if it has none), plus `none_option` (if
+        any) as a first "no app" entry. Callbacks receive the app's key (or `none_option`),
+        not the display name shown in HA."""
         apps = self.supervisor.apps.apps
         to_display = {}
         to_canonical = {}
-        if include_none_option:
-            to_display[NONE_APP_OPTION] = NONE_APP_OPTION
-            to_canonical[NONE_APP_OPTION] = NONE_APP_OPTION
+        if none_option:
+            to_display[none_option] = none_option
+            to_canonical[none_option] = none_option
         for key, app_config in apps.items():
             display = app_config.get('name', key)
             to_display[key] = display
             to_canonical[display] = key
-        options = ([NONE_APP_OPTION] if include_none_option else []) + [to_display[key] for key in apps.keys()]
+        options = ([none_option] if none_option else []) + [to_display[key] for key in apps.keys()]
         return options, to_canonical, to_display
 
     def _apps_all_options(self):
         """"{{apps_all}}": a NONE_APP_OPTION option (meaning "don't auto-start anything")
         followed by every configured app. Used by selects like the default startup app."""
-        return self._build_apps_options(include_none_option=True)
+        return self._build_apps_options(NONE_APP_OPTION)
 
     def _apps_options(self):
-        """"{{apps}}": just the configured apps, no "none" option. Used by selects where
-        every option must correspond to an actually-running app, like the app switcher."""
-        return self._build_apps_options(include_none_option=False)
+        """"{{apps}}": a NO_APP_RUNNING option (meaning "stop whatever's running")
+        followed by every configured app. Used by selects that reflect/control the app
+        that's actually running right now, like the app switcher."""
+        return self._build_apps_options(NO_APP_RUNNING)
 
     def _to_display(self, unique_id, canonical_value):
         return self._select_maps.get(unique_id, {}).get('to_display', {}).get(canonical_value, canonical_value)

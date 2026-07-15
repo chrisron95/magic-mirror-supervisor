@@ -145,11 +145,11 @@ selects:
   - name: "App Switcher"
     unique_id: "app_switcher"
     # "{{apps}}" auto-populates the options from apps.yaml, showing each app's `name`
-    # (not its key) — unlike "{{apps_all}}" above, there's no "no app" option since
-    # switching to "nothing" isn't a meaningful action here.
+    # (not its key), with "Nothing Running" first — selecting it stops whatever app is
+    # currently running, same as the "Stop All Apps" button.
     options: "{{apps}}"
     # Reflects (and controls) the app that's actually running right now, not a persisted
-    # preference, so there's no default_option — it starts unset and follows whatever app
-    # is started (via this select, a button, or supervisor.switch_apps).
-    callback: "start_app"
+    # preference — this just reflects reality at startup, since no app has launched yet.
+    default_option: "Nothing Running"
+    callback: "switch_to_app"
     icon: "mdi:apps"
