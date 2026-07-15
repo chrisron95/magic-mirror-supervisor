@@ -33,6 +33,7 @@ This project includes features like **TV management**, **system monitoring**, an
     - [**config/entities.yaml**](#configentitiesyaml)
     - [**config/apps.yaml**](#configappsyaml)
     - [**config/buttons.yaml**](#configbuttonsyaml)
+    - [**config/services.yaml**](#configservicesyaml)
   - [Usage](#usage)
   - [Project Structure](#project-structure)
 
@@ -97,6 +98,7 @@ Before getting started, please ensure the following are already set up:
 - **MagicMirror2**: Already set up on the Raspberry Pi for the Magic Mirror interface.
 - **IR Touch Screen Overlay**: The setup assumes you have an IR touch screen overlay for the mirror, such as the [IR Touch Screen on Amazon](https://a.co/d/fW02iNM) that makes it a touchscreen interface.
 - **grim** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install grim`.
+- **uxplay** (optional): Only needed for the built-in `uxplay` entry in `services.yaml` (AirPlay mirroring) — see [UxPlay](https://github.com/FDH2/UxPlay) for install instructions. Remove that entry (or replace it with your own service) if you don't need AirPlay.
 
 ---
 
@@ -317,6 +319,26 @@ buttons:
 
 Each button has a `triggers` map keyed by press count (`1`, `2`, `3`, ...) or the literal `"hold"`. A press count with no entry is simply ignored, so double/triple-press support is already there — just add a `2:`/`3:` entry once you decide what it should do. A trigger's value is a dotted method path (e.g. `"tv.toggle_power"`), resolved the same way `entities.yaml` callbacks are, against the running `tv`/`supervisor`/`utils` instances — or a list of dotted paths to run in order (e.g. Button 1's hold: turn the TV off, then shut down). `hold_time` (seconds, default `1`) is how long the button must be held before it counts as a hold instead of a press.
 
+### **config/services.yaml**
+This file defines independent background services — things that should just run in the background (or be toggled on/off), as opposed to `apps.yaml`'s kiosk/MagicMirror entries, which are mutually exclusive (starting one stops whatever else is showing). UxPlay (AirPlay mirroring) is the built-in example, replacing what used to be its own systemd unit:
+
+```yaml
+services:
+  uxplay:
+    name: "AirPlay"
+    working_directory: "{{user_home}}"
+    environment:
+      DISPLAY: ":0.0"
+      XAUTHORITY: "{{user_home}}/.Xauthority"
+    command: "uxplay -n MagicMirror -nh -fs -avdec"
+    restart: true
+    autostart: true
+```
+
+Any number of services can run at the same time as each other and as whatever app is currently showing — they're independent, not something you switch between. `working_directory`/`environment`/`command`/`restart` mean the same thing as a directly-defined `apps.yaml` entry (no templates, no `setup`/`background`/`liveness_check`); `{{user_home}}`, `{{uid}}`, and `{{secrets.<key>}}` are available the same way too. `autostart: true` starts the service when the supervisor boots (independent of network state), instead of waiting for it to be toggled on.
+
+A service is wired up to Home Assistant as a `switch` in `entities.yaml` (see the "AirPlay" switch there) — its `unique_id` must match the service's key here, since `Supervisor` uses that to look up and push state changes back. There isn't a fully generic callback for this yet: adding a second independent service means adding a small `start_<name>`/`stop_<name>`/`is_<name>_running` trio to `app/supervisor.py`, mirroring `start_uxplay`/`stop_uxplay`/`is_uxplay_running`.
+
 ---
 
 ## Usage
@@ -334,7 +356,7 @@ Each button has a `triggers` map keyed by press count (`1`, `2`, `3`, ...) or th
 2. **Control from Home Assistant**:
 
     Once integrated, you can control and monitor the following via Home Assistant:
-    - **Switches**: Control TV power and input.
+    - **Switches**: Control TV power, and toggle independent background services like AirPlay (UxPlay) on/off.
     - **Sensors**: Monitor system stats like IP address, CPU temperature, memory usage, and Pi/Supervisor uptime.
     - **Buttons**: Trigger actions like reboot, shutdown, or app switching.
 
@@ -358,6 +380,8 @@ magic-mirror-supervisor/
 │   ├── supervisor.py              # App switching, notifications, default-app selection
 │   ├── apps.py                    # Launches/supervises the apps defined in config/apps.yaml
 │   ├── app_templates.py           # Built-in app types (e.g. "kiosk") apps.yaml entries can reference
+│   ├── services.py                # Launches/supervises the independent services in config/services.yaml
+│   ├── process_utils.py           # Shared subprocess spawn/log-rotation/terminate logic (apps + services)
 │   ├── home_assistant_client.py   # MQTT/Home Assistant discovery and entity sync
 │   ├── settings_store.py          # Small persisted key/value store (data/settings.yaml)
 │   └── utils.py                   # System stats and system actions (reboot, shutdown, updates)
@@ -366,7 +390,8 @@ magic-mirror-supervisor/
 │   ├── secrets.yaml                (gitignored)
 │   ├── entities.yaml
 │   ├── apps.yaml
-│   └── buttons.yaml
+│   ├── buttons.yaml
+│   └── services.yaml
 ├── data/
 │   └── settings.yaml               (gitignored; written at runtime, e.g. the HA-selected default app)
 ├── logs/                           (gitignored; per-app stdout/stderr, size-capped and rotated)
@@ -379,6 +404,8 @@ magic-mirror-supervisor/
 - **`app/supervisor.py`**: Handles higher-level actions like switching apps, refreshing the kiosk, and stopping apps.
 - **`app/apps.py`**: Starts, stops, and (if configured) auto-restarts the apps defined in `config/apps.yaml` — this is what replaced the old `kiosk.service`/`magicmirror.service` systemd units.
 - **`app/app_templates.py`**: Defines built-in app types (currently just `"kiosk"`) so a new kiosk instance in `apps.yaml` only needs a `url`, not a full copy of the Chromium command/setup/environment.
+- **`app/services.py`**: Starts, stops, and (if configured) auto-restarts the independent background services defined in `config/services.yaml` (e.g. UxPlay/AirPlay) — unlike `apps.py`, any number can run at once, since they're toggled independently rather than switched between.
+- **`app/process_utils.py`**: The subprocess spawn (own process group, rotated log file) and terminate (SIGTERM then SIGKILL) logic shared by both `apps.py` and `services.py`.
 - **`app/home_assistant_client.py`**: Manages MQTT communication with Home Assistant, setting up sensors, buttons, switches, and selects.
 - **`app/settings_store.py`**: Persists small bits of runtime-changeable state (like the HA-selected default app) to `data/settings.yaml`, separate from the static `config/` files.
 - **`app/utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), network connectivity checks, and system actions (reboot, shutdown).

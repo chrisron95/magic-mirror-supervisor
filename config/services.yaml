@@ -1,0 +1,22 @@
+services:
+  uxplay:
+    name: "AirPlay"
+    working_directory: "{{user_home}}"
+    environment:
+      DISPLAY: ":0.0"
+      XAUTHORITY: "{{user_home}}/.Xauthority"
+    command: "uxplay -n MagicMirror -nh -fs -avdec"
+    restart: true
+    autostart: true
+
+# Unlike apps.yaml, any number of these can run at once, alongside whatever app is
+# currently showing — they're independent background services (matching how they ran as
+# separate systemd units before), not something you switch between. Each supports
+# `working_directory`/`environment`/`command`/`restart` the same as a directly-defined
+# apps.yaml entry (no templates, no `setup`/`background`/`liveness_check`), plus:
+#   - `autostart: true` — start this service when the supervisor boots, instead of
+#     waiting for it to be toggled on (e.g. via a switch in entities.yaml).
+# "{{user_home}}", "{{uid}}", and "{{secrets.<key>}}" are available here the same as in
+# apps.yaml. Wire a service up to a switch in entities.yaml via dedicated Supervisor
+# methods (see start_uxplay/stop_uxplay/is_uxplay_running in app/supervisor.py) — add a
+# matching pair of methods there for any additional service you add here.

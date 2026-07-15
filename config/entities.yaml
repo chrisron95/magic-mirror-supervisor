@@ -146,6 +146,15 @@ switches:
     off_callback: "tv.standby"
     state: "tv.get_power_status"
 
+  - name: "AirPlay"
+    # unique_id must match the service's key in config/services.yaml — Supervisor uses it
+    # directly to look up and to push state changes back (see _on_service_state_change).
+    unique_id: "uxplay"
+    on_callback: "supervisor.start_uxplay"
+    off_callback: "supervisor.stop_uxplay"
+    state: "supervisor.is_uxplay_running"
+    icon: "mdi:cast-variant"
+
 selects:
   - name: "Default Startup App"
     unique_id: "default_app"

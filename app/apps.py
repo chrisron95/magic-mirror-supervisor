@@ -1,12 +1,12 @@
 import hashlib
 import logging
 import os
-import signal
 import subprocess
 import threading
 import time
 
 from .app_templates import TEMPLATES
+from .process_utils import spawn_logged, terminate_process_group
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class AppManager:
 
             logger.info(f"Stopping app '{self._current_name}'")
             for process in self._processes:
-                self._terminate(process)
+                terminate_process_group(process)
 
             self._processes = []
             self._main_process = None
@@ -155,44 +155,7 @@ class AppManager:
 
     def _spawn(self, app_name, command, cwd, env, log_suffix):
         log_path = os.path.join(self.log_dir, f"{app_name}-{log_suffix}.log")
-        self._rotate_log_if_large(log_path)
-        log_file = open(log_path, "a")
-        return subprocess.Popen(
-            command, shell=True, cwd=cwd, env=env,
-            stdout=log_file, stderr=subprocess.STDOUT,
-            preexec_fn=os.setsid  # own process group, so we can cleanly kill the whole subtree later
-        )
-
-    def _rotate_log_if_large(self, log_path):
-        """Keep app stdout/stderr logs bounded: once a log exceeds MAX_LOG_BYTES, move it
-        to a single ".1" backup (overwriting any previous one) and start a fresh file.
-        Only runs at spawn time — the file isn't open yet, so there's no risk of a still-
-        running process writing into a renamed/rotated-out file."""
-        try:
-            if os.path.getsize(log_path) <= self.MAX_LOG_BYTES:
-                return
-        except OSError:
-            return  # doesn't exist yet; nothing to rotate
-
-        try:
-            os.replace(log_path, log_path + ".1")
-        except OSError as e:
-            logger.warning(f"Failed to rotate log {log_path}: {e}")
-
-    def _terminate(self, process, timeout=5):
-        if process.poll() is not None:
-            return
-        try:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            process.wait(timeout=timeout)
-            return
-        except (subprocess.TimeoutExpired, ProcessLookupError):
-            pass
-        try:
-            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            process.wait(timeout=2)
-        except (subprocess.TimeoutExpired, ProcessLookupError):
-            pass
+        return spawn_logged(command, cwd, env, log_path, self.MAX_LOG_BYTES)
 
     def _monitor(self, name, generation):
         """Wait for the app's main process to exit, and relaunch it if nothing else has

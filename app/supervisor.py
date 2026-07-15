@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from .apps import AppManager
+from .services import ServiceManager
 from .utils import format_duration
 
 NONE_APP_OPTION = "No Startup App"  # sentinel for the default_app select's "don't auto-start anything" option
@@ -16,7 +17,7 @@ NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app i
 UPTIME_REFRESH_INTERVAL = 30  # seconds between uptime sensor/attribute refreshes
 
 class Supervisor:
-    def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None):
+    def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None, services_config=None):
         self.config = config
         self.ha_client = ha_client
         self.sounds = sounds
@@ -24,6 +25,11 @@ class Supervisor:
         self.utils = utils
         self.settings_store = settings_store
         self.apps = AppManager((apps_config or {}).get('apps', {}), user_home=user_home, secrets=secrets)
+        self.services = ServiceManager(
+            (services_config or {}).get('services', {}),
+            user_home=user_home, secrets=secrets,
+            on_state_change=self._on_service_state_change
+        )
         threading.Thread(target=self._uptime_loop, daemon=True).start()
 
     def notify(self, title, message):
@@ -145,6 +151,22 @@ class Supervisor:
         self.notify("Button Handler", "All applications stopped")
         self.apps.stop()
         self._notify_current_app()
+
+    def _on_service_state_change(self, name, running):
+        """ServiceManager callback: keep a service's HA switch (unique_id == service
+        name, e.g. "uxplay") in sync whenever it starts/stops, including auto-restarts."""
+        if not self.ha_client:
+            return
+        self.ha_client.update_switch(name, "ON" if running else "OFF")
+
+    def start_uxplay(self):
+        self.services.start("uxplay")
+
+    def stop_uxplay(self):
+        self.services.stop("uxplay")
+
+    def is_uxplay_running(self):
+        return self.services.is_running("uxplay")
 
     def sample(self):
         self.notify("Hello", "You found the secret button")

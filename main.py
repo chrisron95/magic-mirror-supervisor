@@ -27,6 +27,9 @@ with open('config/entities.yaml', 'r') as entities_file:
 with open('config/apps.yaml', 'r') as apps_file:
     apps_config = yaml.safe_load(apps_file)
 
+with open('config/services.yaml', 'r') as services_file:
+    services_config = yaml.safe_load(services_file)
+
 # "{{user_home}}"/"{{uid}}"/"{{url}}"/"{{secrets.<key>}}" placeholders in apps.yaml (and app
 # templates) are resolved by AppManager itself; it just needs the configured home directory
 # and secrets here.
@@ -67,6 +70,7 @@ def signal_handler(sig, frame):
         ha_client.cleanup()
     if supervisor:
         supervisor.apps.stop()  # avoid leaking the running app's process group across a restart
+        supervisor.services.stop_all()
     utils.cleanup_gpios()
     sys.exit(0)
 
@@ -95,7 +99,8 @@ def main():
         settings_store=settings_store,
         apps_config=apps_config,
         user_home=user_home,
-        secrets=secrets
+        secrets=secrets,
+        services_config=services_config
     )
     logger.info("Supervisor initialized")
 
@@ -117,6 +122,11 @@ def main():
     buttons = load_buttons('config/buttons.yaml', button_context)
     utils.buttons = buttons
     logger.info(f"Buttons initialized ({len(buttons)})")
+
+    # Start any autostart: true services (e.g. UxPlay) — independent of the default app,
+    # and not gated on network like it is, since these don't need the MQTT broker to run.
+    supervisor.services.start_autostart()
+    logger.info("Autostart services started")
 
     # Initialize Home Assistant Client
     global ha_client

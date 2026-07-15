@@ -31,7 +31,7 @@ python main.py
 
 ## Configuration (config/, gitignored where noted)
 
-Runtime behavior is data-driven from five YAML files, loaded once at startup in `main.py`:
+Runtime behavior is data-driven from six YAML files, loaded once at startup in `main.py`:
 
 - **`config.yaml`** — device name/model, log level, `default_app` fallback.
 - **`secrets.yaml`** (gitignored) — MQTT credentials, `ha_url`. Referenced elsewhere as `{{secrets.<key>}}`.
@@ -48,6 +48,12 @@ Runtime behavior is data-driven from five YAML files, loaded once at startup in 
   map: press count (`1`/`2`/`3`/...) or `"hold"` → a dotted method path or list of them, resolved
   against the running `tv`/`supervisor`/`utils` instances the same way `entities.yaml` callbacks are.
   Loaded via `app/buttons.py`'s `load_buttons()`.
+- **`services.yaml`** — declares independent background services (currently just `uxplay`/AirPlay)
+  that run via `app/services.py`'s `ServiceManager`, separate from `AppManager`. Unlike apps, any
+  number of services can run concurrently with each other and with whatever app is showing — they're
+  toggled on/off (e.g. via an HA switch), not switched between. `working_directory`/`environment`/
+  `command`/`restart` mean the same as a directly-defined `apps.yaml` entry; `autostart: true` starts
+  it at boot instead of waiting for a toggle.
 
 `data/settings.yaml` (gitignored, written at runtime) holds the small set of values that can change
 live from Home Assistant (e.g. the HA-selected default startup app) and must survive a restart,
@@ -60,13 +66,14 @@ launchable app (not just another kiosk URL) means adding a template function to 
 ## Architecture
 
 `main.py` is the composition root: it loads the config files, then constructs (in order) `TV` →
-`Supervisor` (which owns an `AppManager`) → `Utils` → the `ButtonHandler`s (via `buttons.py`'s
-`load_buttons()`, given a `SimpleNamespace(tv=, supervisor=, utils=)` to resolve `buttons.yaml`'s
-dotted paths against) → `HomeAssistantClient`,
+`Supervisor` (which owns an `AppManager` and a `ServiceManager`) → `Utils` → the `ButtonHandler`s (via
+`buttons.py`'s `load_buttons()`, given a `SimpleNamespace(tv=, supervisor=, utils=)` to resolve
+`buttons.yaml`'s dotted paths against) → `HomeAssistantClient`,
 wiring circular references (`supervisor.ha_client`, `tv.ha_client`, etc.) after construction since HA
-setup needs a live `supervisor`/`tv`/`utils` and vice versa. It then waits for network connectivity
-before auto-starting the configured default app, and blocks in `signal.pause()` — all real work happens
-on background threads (button GPIO callbacks, MQTT client loop, app-monitor threads) or MQTT-triggered
+setup needs a live `supervisor`/`tv`/`utils` and vice versa. Autostart services (`services.yaml`) start
+right after, independent of network state; the configured default app only starts once network
+connectivity is confirmed. It then blocks in `signal.pause()` — all real work happens on background
+threads (button GPIO callbacks, MQTT client loop, app/service-monitor threads) or MQTT-triggered
 callbacks, not driven from the main thread.
 
 - **`app/tv.py`** (`TV`) — HDMI-CEC control via shelling out to `cec-client`. All CEC access is
@@ -79,12 +86,20 @@ callbacks, not driven from the main thread.
   stops whatever's running first (only one app runs at a time). Each launched app gets a monotonically
   increasing `_generation`; `stop()` bumps it, and background restart/liveness-monitor threads check
   their captured generation before acting, so a stale monitor from a since-stopped app never
-  resurrects it or clobbers a newer one. Processes are launched with `preexec_fn=os.setsid` and killed
-  via `os.killpg` (SIGTERM then SIGKILL) so a whole subtree (e.g. Chromium's child processes) dies
-  together. Two independent failure-detection paths: `_monitor` (process exited) triggers `restart:
-  true`; `_monitor_liveness` (process alive but screen hasn't changed, via periodic `grim` screenshot
-  hashing) triggers `liveness_check`. Per-app stdout/stderr logs under `logs/` are size-capped and
-  rotated to a single `.1` backup at spawn time.
+  resurrects it or clobbers a newer one. Two independent failure-detection paths: `_monitor` (process
+  exited) triggers `restart: true`; `_monitor_liveness` (process alive but screen hasn't changed, via
+  periodic `grim` screenshot hashing) triggers `liveness_check`. Spawning (own process group via
+  `preexec_fn=os.setsid`, log rotation) and killing (`os.killpg`, SIGTERM then SIGKILL) are shared with
+  `ServiceManager` via `app/process_utils.py`.
+
+- **`app/services.py`** (`ServiceManager`) — the same idea as `AppManager` but for `services.yaml`'s
+  independent background services (currently just `uxplay`): no single-slot exclusivity, so any number
+  can run concurrently with each other and with whatever app is current. Generation tracking is
+  per-service (`_generation[name]`, not one shared counter) for the same stale-monitor-standdown reason
+  as `AppManager`. An optional `on_state_change(name, running)` callback — `Supervisor` wires this to
+  `HomeAssistantClient.update_switch(name, ...)` — fires on every start/stop, including auto-restarts,
+  so a service's HA switch (`unique_id` == the service's `services.yaml` key) stays in sync without
+  polling.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus
@@ -101,7 +116,10 @@ callbacks, not driven from the main thread.
   `_push_uptimes`: the "Current App" sensor's `uptime` attribute (from `AppManager.get_uptime_seconds()`,
   read fresh each tick so it self-heals after a crash/liveness restart without AppManager needing to call
   back into it), plus the "Pi Uptime" and "Supervisor Uptime" sensors (from `Utils`). This is the only
-  polling loop in the codebase; everything else pushes on change.
+  polling loop in the codebase; everything else pushes on change. Also owns thin per-service wrapper
+  methods (e.g. `start_uxplay`/`stop_uxplay`/`is_uxplay_running`, delegating to `ServiceManager`) since
+  HA switch callbacks in `entities.yaml` are zero-argument dotted paths — adding another independent
+  service means adding both a `services.yaml` entry and one more such wrapper trio here.
 
 - **`app/home_assistant_client.py`** (`HomeAssistantClient`) — MQTT discovery/sync via
   `ha-mqtt-discoverable`. Two connection strategies coexist: `BinarySensor`/`Sensor` reuse one shared
