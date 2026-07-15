@@ -230,8 +230,17 @@ class HomeAssistantClient:
                 self._rebroadcast_availability_on_reconnect(select_entity)
                 setattr(self, f"{unique_id}_entity", select_entity)
 
-                # Persisted setting (if any) wins over the entities.yaml fallback default
+                # Persisted setting (if any) wins over the entities.yaml fallback default.
+                # A persisted value that's no longer valid (e.g. an app key from before it
+                # was renamed in apps.yaml) would publish a state outside the entity's
+                # declared `options`, which HA shows as "unknown" — fall back instead.
+                valid_values = set(to_display.keys()) if uses_apps_all else set(options)
                 current_value = self.supervisor.settings_store.get(unique_id, default_option)
+                if current_value not in valid_values:
+                    if current_value is not None:
+                        logger.warning(f"Persisted value '{current_value}' for select '{unique_id}' is no longer valid; falling back to '{default_option}'")
+                    current_value = default_option
+
                 if current_value:
                     select_entity.set_options(self._to_display(unique_id, current_value))
             except Exception as e:
