@@ -5,7 +5,10 @@ services:
     environment:
       DISPLAY: ":0.0"
       XAUTHORITY: "{{user_home}}/.Xauthority"
-    command: "uxplay -n MagicMirror -nh -fs -avdec -nofreeze"
+    # -vs ximagesink avoids a documented GStreamer bug where the default (autovideosink
+    # picking glimagesink, its OpenGL renderer) window doesn't actually close when the
+    # client sends "Stop Mirroring" or -nofreeze's offline-reset fires.
+    command: "uxplay -n MagicMirror -nh -fs -avdec -nofreeze -vs ximagesink"
     restart: true
     autostart: true
 
