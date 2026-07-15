@@ -11,8 +11,11 @@ class TV:
         self.address = address
         self.ha_client = ha_client
         self.lock = threading.Lock()  # serializes power/input commands against overlapping button/MQTT triggers
-        self.is_on = self.check_power_status()
-        logging.info(f"TV initialized. Power: {'ON' if self.is_on else 'OFF'}")
+
+        # Set a default before checking the actual power status
+        self.is_on = False
+        self.power_thread = threading.Thread(target=self.initialize_power_status, daemon=True)
+        self.power_thread.start()
 
         # Set internal input to a default before checking the actual input
         self.internal_input = "Unknown"
@@ -20,6 +23,11 @@ class TV:
         # Start the input check in a separate thread so buttons remain responsive
         self.input_thread = threading.Thread(target=self.initialize_input, daemon=True)
         self.input_thread.start()
+
+    def initialize_power_status(self):
+        """Background thread to check initial TV power status."""
+        self.check_power_status()
+        logging.info(f"TV initialized. Power: {'ON' if self.is_on else 'OFF'}")
 
     def initialize_input(self):
         """Background thread to check initial TV input."""
@@ -75,10 +83,7 @@ class TV:
         return power_status
 
     def get_power_status(self):
-        """Return the last-known power status without querying the TV again. cec-client
-        re-initializes the whole CEC adapter on every invocation (often 10+ seconds), so
-        entity setup uses this cached value (from the check_power_status() call already
-        made in __init__) instead of paying that cost twice more at startup."""
+        """Return the last-known power status without querying the TV again."""
         return self.is_on
 
     def toggle_power(self):
@@ -176,10 +181,14 @@ class TV:
 
 
     def update_input(self):
-        """Return the currently set input source."""
+        """Push the currently set input source to Home Assistant."""
         # self.get_active_source()  # Update internal input
         if self.ha_client:
             self.ha_client.update_sensor("tv_current_input", self.internal_input)
+        return self.internal_input
+
+    def get_current_input(self):
+        """Return the last-known input without pushing an update."""
         return self.internal_input
 
     def set_input(self, desired_source):

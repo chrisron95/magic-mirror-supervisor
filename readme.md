@@ -171,6 +171,7 @@ Before getting started, please ensure the following are already set up:
         Type=idle
         ExecStart=/home/pi/magic-mirror-supervisor/.venv/bin/python3 /home/pi/magic-mirror-supervisor/main.py
         Environment=DISPLAY=:0
+        Environment=XDG_RUNTIME_DIR=/run/user/%U
         WorkingDirectory=/home/pi/magic-mirror-supervisor
         User=pi
 
@@ -349,8 +350,7 @@ magic-mirror-supervisor/
 ├── data/
 │   └── settings.yaml               (gitignored; written at runtime, e.g. the HA-selected default app)
 ├── logs/                           (gitignored; per-app stdout/stderr, size-capped and rotated)
-├── sounds/                         # Audio assets
-└── pi_files/                       # Reference copies of the systemd unit files installed on the Pi
+└── sounds/                         # Audio assets
 ```
 
 - **`main.py`**: The main script that initializes and runs the Magic Mirror Supervisor, managing the TV, buttons, Home Assistant integration, and more.

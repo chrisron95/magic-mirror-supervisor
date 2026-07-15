@@ -1,8 +1,6 @@
 binary_sensors:
   - name: "TV Power"
     unique_id: "tv_power"
-    # "tv.get_power_status" (not "tv.check_power_status") — reuses the check TV already
-    # did once at startup instead of paying for another slow cec-client invocation here.
     state: "tv.get_power_status"
     device_class: "power"
     icon: "mdi:television"
@@ -43,7 +41,7 @@ sensors:
 
   - name: "TV Current Input"
     unique_id: "tv_current_input"
-    state: "tv.update_input"
+    state: "tv.get_current_input"
     icon: "mdi:import"
 
   - name: "Current App"
@@ -129,7 +127,6 @@ switches:
     unique_id: "tv_power_switch"
     on_callback: "tv.power_on"
     off_callback: "tv.standby"
-    # See the binary_sensor above — reuses the cached status instead of another cec-client call.
     state: "tv.get_power_status"
 
 selects:
