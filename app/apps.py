@@ -239,7 +239,9 @@ class AppManager:
 
     def _capture_screenshot_hash(self, path):
         try:
-            subprocess.run(["scrot", "--overwrite", path], check=True, capture_output=True, timeout=10)
+            # grim, not scrot: this is a Wayland (labwc) session, so an X11 tool would only
+            # ever see an empty root window regardless of what's actually on screen.
+            subprocess.run(["grim", path], check=True, capture_output=True, timeout=10)
             with open(path, "rb") as f:
                 return hashlib.md5(f.read()).hexdigest()
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:

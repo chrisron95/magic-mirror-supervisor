@@ -76,7 +76,7 @@ callbacks, not driven from the main thread.
   resurrects it or clobbers a newer one. Processes are launched with `preexec_fn=os.setsid` and killed
   via `os.killpg` (SIGTERM then SIGKILL) so a whole subtree (e.g. Chromium's child processes) dies
   together. Two independent failure-detection paths: `_monitor` (process exited) triggers `restart:
-  true`; `_monitor_liveness` (process alive but screen hasn't changed, via periodic `scrot` screenshot
+  true`; `_monitor_liveness` (process alive but screen hasn't changed, via periodic `grim` screenshot
   hashing) triggers `liveness_check`. Per-app stdout/stderr logs under `logs/` are size-capped and
   rotated to a single `.1` backup at spawn time.
 

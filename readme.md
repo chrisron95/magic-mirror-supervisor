@@ -95,7 +95,7 @@ Before getting started, please ensure the following are already set up:
 - **Raspberry Pi**: With Raspberry Pi OS installed and connected to your network.
 - **MagicMirror2**: Already set up on the Raspberry Pi for the Magic Mirror interface.
 - **IR Touch Screen Overlay**: The setup assumes you have an IR touch screen overlay for the mirror, such as the [IR Touch Screen on Amazon](https://a.co/d/fW02iNM) that makes it a touchscreen interface.
-- **scrot** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install scrot`.
+- **grim** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install grim`.
 
 ---
 
@@ -292,7 +292,7 @@ security_cam:
 ```
 Any template field can also be overridden per-instance (e.g. a different `liveness_check` threshold for one specific kiosk). The `"kiosk"` type also accepts `show_navigation: true` to keep Chromium's omnibox/back/forward/reload UI visible (it's hidden by default via `--kiosk`). Adding a whole new *type* of app (not just another kiosk instance) means adding a new template to `app/app_templates.py`.
 
-An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `scrot` installed on the Pi.
+An app can optionally set `liveness_check` (`interval` / `stale_after`, in seconds) to catch a specific failure mode `restart: true` alone can't: a process that's still running but has hung (e.g. a frozen browser tab), rather than one that's actually exited. With it enabled, the supervisor periodically screenshots the display and restarts the app if the screen hasn't visibly changed for `stale_after` seconds — requires `grim` installed on the Pi.
 
 Each app's stdout/stderr log under `logs/` is capped at `AppManager.MAX_LOG_BYTES` (5 MB by default) and rotated to a single `.1` backup when it's exceeded, so log growth stays bounded regardless of uptime or how chatty an app's console output is.
 

@@ -51,8 +51,8 @@ def KIOSK(overrides):
         ),
         "restart": True,
         # If the screen hasn't visibly changed in 3 minutes, treat it as a frozen renderer
-        # (still running, just unresponsive) and force a restart. Requires `scrot`
-        # (sudo apt install scrot) to be installed on the Pi.
+        # (still running, just unresponsive) and force a restart. Requires `grim`
+        # (sudo apt install grim) to be installed on the Pi.
         "liveness_check": {
             "interval": 30,
             "stale_after": 180,
