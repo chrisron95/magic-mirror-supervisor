@@ -2,7 +2,7 @@ apps:
   kiosk:
     app: "kiosk"
     name: "Home Assistant Kiosk"
-    url: "http://192.168.1.70:8123/dashboard-magicmirror/dashboard"
+    url: "{{secrets.ha_url}}/dashboard-magicmirror/dashboard"
 
   magicmirror:
     name: "Magic Mirror"
@@ -20,4 +20,6 @@ apps:
 #     `background`, `command`, `restart`, `liveness_check` — see "magicmirror" above.
 # Either way, wire it up to a button/select in entities.yaml the same way "kiosk" and
 # "magicmirror" are. "{{user_home}}" and "{{uid}}" are available anywhere in this file or
-# in a template; templated apps also get "{{url}}" from their own `url:` key.
+# in a template; templated apps also get "{{url}}" from their own `url:` key. Reference
+# values from config/secrets.yaml anywhere with "{{secrets.<key>}}", e.g. "{{secrets.ha_url}}"
+# above, so things like internal IP addresses don't need to live in this (tracked) file.

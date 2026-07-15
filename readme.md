@@ -216,20 +216,20 @@ default_app: "kiosk"
 - **default_app**: Which app (from `apps.yaml`) to start at boot if nothing's been selected yet via Home Assistant. See [entities.yaml](#configentitiesyaml) and [apps.yaml](#configappsyaml).
 
 ### **config/secrets.yaml**
-This file stores sensitive data, such as MQTT credentials and Home Assistant API tokens. It's gitignored — never commit it.
+This file stores sensitive data, such as MQTT credentials and internal URLs/IPs. It's gitignored — never commit it. Any key in here can be referenced from `apps.yaml` (or elsewhere) via `{{secrets.<key>}}`, e.g. `{{secrets.ha_url}}`.
 
 ```yaml
 mqtt_broker: "your-mqtt-broker.local"
 mqtt_port: 1883
 mqtt_username: "your-mqtt-username"
 mqtt_password: "your-mqtt-password"
+ha_url: "http://192.168.1.70:8123"
 ```
 
 - **mqtt_broker**: The hostname or IP address of your MQTT broker.
 - **mqtt_port**: The port for the MQTT broker (default is `1883`).
 - **mqtt_username** and **mqtt_password**: Credentials for the MQTT broker.
-- **ha_api_token**: Your Home Assistant API token.
-- **ha_api_url**: URL of your Home Assistant instance.
+- **ha_url**: Scheme, host, and port of your Home Assistant instance (e.g. `http://192.168.1.70:8123`). Referenced from `apps.yaml` as `{{secrets.ha_url}}`, e.g. for the kiosk app's dashboard URL.
 
 ### **config/entities.yaml**
 This file defines the entities (buttons, sensors, switches, selects) that will be discovered in Home Assistant, and the method to use for them.

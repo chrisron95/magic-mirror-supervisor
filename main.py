@@ -25,8 +25,9 @@ with open('config/entities.yaml', 'r') as entities_file:
 with open('config/apps.yaml', 'r') as apps_file:
     apps_config = yaml.safe_load(apps_file)
 
-# "{{user_home}}"/"{{uid}}"/"{{url}}" placeholders in apps.yaml (and app templates) are
-# resolved by AppManager itself; it just needs the configured home directory here.
+# "{{user_home}}"/"{{uid}}"/"{{url}}"/"{{secrets.<key>}}" placeholders in apps.yaml (and app
+# templates) are resolved by AppManager itself; it just needs the configured home directory
+# and secrets here.
 user_home = config.get('user_home', os.path.expanduser('~'))
 
 # Persisted, user-changeable settings (e.g. default_app selected from Home Assistant)
@@ -78,7 +79,8 @@ def main():
         utils=None,
         settings_store=settings_store,
         apps_config=apps_config,
-        user_home=user_home
+        user_home=user_home,
+        secrets=secrets
     )
     logger.info("Supervisor initialized")
 

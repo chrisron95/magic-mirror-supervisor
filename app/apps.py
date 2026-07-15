@@ -17,8 +17,8 @@ class AppManager:
     RESTART_DELAY = 2  # seconds to wait before relaunching an app that exited unexpectedly
     MAX_LOG_BYTES = 5 * 1024 * 1024  # rotate a log past this size, keeping one backup
 
-    def __init__(self, apps, user_home=None, log_dir="logs"):
-        self.apps = self._resolve_apps(apps or {}, user_home or os.path.expanduser('~'))
+    def __init__(self, apps, user_home=None, secrets=None, log_dir="logs"):
+        self.apps = self._resolve_apps(apps or {}, user_home or os.path.expanduser('~'), secrets or {})
         self.log_dir = log_dir
         os.makedirs(self.log_dir, exist_ok=True)
 
@@ -28,9 +28,14 @@ class AppManager:
         self._main_process = None  # the tracked/monitored process
         self._generation = 0       # bumped by stop(); invalidates any in-flight restart-monitor
 
-    def _resolve_apps(self, raw_apps, user_home):
+    def _resolve_apps(self, raw_apps, user_home, secrets):
         """Merge each entry with its template (if it references one via `app:`), then
-        substitute {{user_home}}, {{uid}}, and (for templated entries) {{url}}."""
+        substitute {{user_home}}, {{uid}}, {{secrets.<key>}}, and (for templated
+        entries) {{url}}."""
+        base_replacements = {'{{user_home}}': user_home, '{{uid}}': str(os.getuid())}
+        for key, value in secrets.items():
+            base_replacements[f'{{{{secrets.{key}}}}}'] = str(value)
+
         resolved = {}
         for name, entry in raw_apps.items():
             template_name = entry.get('app')
@@ -43,9 +48,13 @@ class AppManager:
             else:
                 merged = dict(entry)
 
-            replacements = {'{{user_home}}': user_home, '{{uid}}': str(os.getuid())}
+            replacements = dict(base_replacements)
             if 'url' in merged:
-                replacements['{{url}}'] = merged['url']
+                # Resolve the url's own placeholders (e.g. {{secrets.*}}) first, so it's
+                # fully substituted before being used as the {{url}} replacement value —
+                # otherwise a secret reference inside the url could end up depending on
+                # dict ordering to get resolved.
+                replacements['{{url}}'] = self._substitute(merged['url'], replacements)
 
             resolved[name] = self._substitute(merged, replacements)
         return resolved
