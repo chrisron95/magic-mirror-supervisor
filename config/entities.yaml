@@ -121,8 +121,15 @@ switches:
 selects:
   - name: "Default Startup App"
     unique_id: "default_app"
-    options: ["kiosk", "magicmirror"]
-    default_option: "kiosk"
+    # "{{apps_all}}" auto-populates the options from apps.yaml, showing each app's `name`
+    # (not its key), with "None" first (and as the default) meaning "don't auto-start
+    # anything". To hand-pick a subset instead, use a plain list like the old
+    # ["kiosk", "magicmirror"] — those keys must match apps.yaml entries.
+    options: "{{apps_all}}"
+    # Optional: overrides "None" as the pre-selected option. Must be the app's apps.yaml
+    # *key* (or "None"), not its display `name` — e.g. "homeassistant_mirror_dashboard",
+    # not "Home Assistant Mirror Dashboard". HA will still display the app's name.
+    # default_option: "homeassistant_mirror_dashboard"
     callback: "set_default_app"
     entity_category: "config"
     icon: "mdi:application-cog"

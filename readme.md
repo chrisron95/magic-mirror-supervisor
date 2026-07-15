@@ -271,14 +271,13 @@ buttons:
 selects:
   - name: "Default Startup App"
     unique_id: "default_app"
-    options: ["kiosk", "magicmirror"]
-    default_option: "kiosk"
+    options: "{{apps_all}}"
     callback: "set_default_app"
 ```
 
 - **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, etc.) back to Home Assistant.
 - **buttons**: Defines actions that buttons can trigger, such as reboot, shutdown, or starting an app. `args` is optional and lets a button call a method with a fixed argument (e.g. `supervisor.start_app("magicmirror")`).
-- **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`.
+- **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`. Its `options` can be `"{{apps_all}}"` to auto-populate from `apps.yaml` — shown as each app's display `name`, with a "None" option (and default) meaning "don't auto-start anything" — or a plain list of specific app keys (e.g. `["kiosk", "magicmirror"]`) to hand-pick a subset instead. Either way, an optional `default_option` overrides the pre-selected choice; it must be the app's apps.yaml *key* (or `"None"`), not its display `name`.
 
 ### **config/apps.yaml**
 This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirror, or anything you add — a game, a photo slideshow, etc.), replacing what used to be separate systemd services for each. See the comments in the file itself for the schema; `supervisor.start_app("name")` and the buttons/selects above are how you trigger one.

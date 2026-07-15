@@ -3,6 +3,8 @@ import logging
 import os
 from .apps import AppManager
 
+NONE_APP_OPTION = "None"  # sentinel for the default_app select's "don't auto-start anything" option
+
 class Supervisor:
     def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None):
         self.config = config
@@ -56,14 +58,14 @@ class Supervisor:
     def start_default_app(self):
         """Start the default app: a persisted (HA-selected) choice wins over config.yaml's fallback."""
         default_app = self.settings_store.get("default_app", self.config.get('default_app'))
-        if default_app:
+        if default_app and default_app != NONE_APP_OPTION:
             self.start_app(default_app)
         else:
             logging.info("No default_app configured; not starting any app")
 
     def set_default_app(self, app_name):
         """Persist the user-selected default startup app (e.g. from the HA select entity)."""
-        if app_name not in self.apps.list_apps():
+        if app_name != NONE_APP_OPTION and app_name not in self.apps.list_apps():
             logging.warning(f"Ignoring invalid default_app selection: {app_name}")
             return
         self.settings_store.set("default_app", app_name)

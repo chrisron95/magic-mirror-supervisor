@@ -3,8 +3,11 @@ import time
 import logging
 from ha_mqtt_discoverable import Settings, DeviceInfo
 from ha_mqtt_discoverable.sensors import BinarySensor, BinarySensorInfo, Button, ButtonInfo, Switch, SwitchInfo, Sensor, SensorInfo, Select, SelectInfo
+from .supervisor import NONE_APP_OPTION
 
 logger = logging.getLogger(__name__)
+
+APPS_ALL_OPTIONS = "{{apps_all}}"  # entities.yaml select `options:` shorthand — see _apps_all_options()
 
 class HomeAssistantClient:
     def __init__(self, broker, port, username, password, config, entities, supervisor, tv, utils):
@@ -14,6 +17,9 @@ class HomeAssistantClient:
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
         self.retained_values = {}
+        # unique_id -> {'to_canonical': {display: canonical}, 'to_display': {canonical: display}},
+        # only populated for selects using the "{{apps_all}}" options shorthand
+        self._select_maps = {}
 
         # Connect asynchronously so a down/absent network never blocks or raises here;
         # the network loop thread keeps retrying with backoff until the broker is reachable.
@@ -165,14 +171,51 @@ class HomeAssistantClient:
                 logger.error(f"Callback method not found: {e}")
         return callback
     
+    def _apps_all_options(self):
+        """Build the options list and canonical<->display maps for a select using the
+        "{{apps_all}}" options shorthand: a "None" option (meaning "don't auto-start
+        anything", stored/passed around as NONE_APP_OPTION) followed by each configured
+        app's display `name` (falling back to its apps.yaml key if it has none). Callbacks
+        receive the app's key (or NONE_APP_OPTION), not the display name shown in HA."""
+        apps = self.supervisor.apps.apps
+        to_display = {NONE_APP_OPTION: NONE_APP_OPTION}
+        to_canonical = {NONE_APP_OPTION: NONE_APP_OPTION}
+        for key, app_config in apps.items():
+            display = app_config.get('name', key)
+            to_display[key] = display
+            to_canonical[display] = key
+        options = [NONE_APP_OPTION] + [to_display[key] for key in apps.keys()]
+        return options, to_canonical, to_display
+
+    def _to_display(self, unique_id, canonical_value):
+        return self._select_maps.get(unique_id, {}).get('to_display', {}).get(canonical_value, canonical_value)
+
+    def _to_canonical(self, unique_id, display_value):
+        return self._select_maps.get(unique_id, {}).get('to_canonical', {}).get(display_value, display_value)
+
     def setup_selects(self):
         for select in self.entities['selects']:
             try:
+                unique_id = select['unique_id']
+                raw_options = select['options']
+                uses_apps_all = raw_options == APPS_ALL_OPTIONS
+
+                if uses_apps_all:
+                    options, to_canonical, to_display = self._apps_all_options()
+                    self._select_maps[unique_id] = {'to_canonical': to_canonical, 'to_display': to_display}
+                else:
+                    options = raw_options
+
+                # entities.yaml's default_option (if any) is a canonical value (an app key,
+                # or NONE_APP_OPTION); "{{apps_all}}" selects default to NONE_APP_OPTION so a
+                # fresh device doesn't silently auto-start whatever app happens to be first.
+                default_option = select.get('default_option', NONE_APP_OPTION if uses_apps_all else None)
+
                 select_info = SelectInfo(
                     name=select['name'],
                     device=self.device_info,
-                    unique_id=select['unique_id'],
-                    options=select['options'],
+                    unique_id=unique_id,
+                    options=options,
                     icon=select.get('icon', None),
                     entity_category=select.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
                     enabled_by_default=select.get('enabled_by_default', None),
@@ -181,25 +224,26 @@ class HomeAssistantClient:
                     force_update=True
                 )
                 select_settings = Settings(mqtt=self.mqtt_settings, entity=select_info, manual_availability=True)
-                select_entity = Select(select_settings, self.create_select_callback(select['callback']))
+                select_entity = Select(select_settings, self.create_select_callback(select['callback'], unique_id))
                 select_entity.write_config()
                 select_entity.set_availability(True)
                 self._rebroadcast_availability_on_reconnect(select_entity)
-                setattr(self, f"{select['unique_id']}_entity", select_entity)
+                setattr(self, f"{unique_id}_entity", select_entity)
 
                 # Persisted setting (if any) wins over the entities.yaml fallback default
-                current_value = self.supervisor.settings_store.get(select['unique_id'], select.get('default_option'))
+                current_value = self.supervisor.settings_store.get(unique_id, default_option)
                 if current_value:
-                    select_entity.set_options(current_value)
+                    select_entity.set_options(self._to_display(unique_id, current_value))
             except Exception as e:
                 logger.warning(f"Failed to set up select {select.get('unique_id')}: {e}")
 
-    def create_select_callback(self, method_name):
+    def create_select_callback(self, method_name, unique_id):
         def callback(client, userdata, message):
             payload = message.payload.decode()
+            canonical_value = self._to_canonical(unique_id, payload)
             try:
                 method = getattr(self.supervisor, method_name)
-                method(payload)
+                method(canonical_value)
             except AttributeError as e:
                 logger.error(f"Callback method not found: {e}")
         return callback
@@ -359,7 +403,7 @@ class HomeAssistantClient:
     def update_select(self, unique_id, value):
         select_entity = getattr(self, f"{unique_id}_entity", None)
         if select_entity:
-            select_entity.set_options(value)
+            select_entity.set_options(self._to_display(unique_id, value))
         else:
             logger.warning(f"Select with unique_id {unique_id} not found.")
 
