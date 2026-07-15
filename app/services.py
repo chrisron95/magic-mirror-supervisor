@@ -108,7 +108,8 @@ class ServiceManager:
 
         logger.info(f"[{name}] command: {command}")
         log_path = os.path.join(self.log_dir, f"{name}.log")
-        process = spawn_logged(command, working_directory, env, log_path, self.MAX_LOG_BYTES)
+        process = spawn_logged(command, working_directory, env, log_path, self.MAX_LOG_BYTES,
+                                stream_logger=logger, stream_prefix=name)
         self._running[name] = process
 
         generation = self._generation[name]

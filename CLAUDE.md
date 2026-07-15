@@ -102,7 +102,10 @@ callbacks, not driven from the main thread.
   polling. `start(name, extra_args=...)` appends extra CLI args to the configured `command` for that
   run *and* any auto-restarts of it (stored in `_extra_args[name]`, not passed to `_launch` each time) —
   this is how `Supervisor.start_uxplay` applies the persisted rotation flag (`-r R`/`-r L`/`-f I`) without
-  `ServiceManager` needing to know anything UxPlay-specific.
+  `ServiceManager` needing to know anything UxPlay-specific. Unlike `AppManager`, `_launch` passes
+  `spawn_logged(..., stream_logger=logger, stream_prefix=name)`, so a service's output also lands in
+  `journalctl -u magic-mirror-supervisor.service` live, not just its own log file — apps stay file-only
+  since Chromium/MagicMirror console output would be far too chatty for that.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus

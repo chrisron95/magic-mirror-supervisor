@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import subprocess
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +24,39 @@ def rotate_log_if_large(log_path, max_bytes):
         logger.warning(f"Failed to rotate log {log_path}: {e}")
 
 
-def spawn_logged(command, cwd, env, log_path, max_log_bytes):
+def spawn_logged(command, cwd, env, log_path, max_log_bytes, stream_logger=None, stream_prefix=""):
     """Launch `command` in its own process group (so the whole subtree can be killed
-    together later), with stdout/stderr appended to a size-capped, rotated log file."""
+    together later), with stdout/stderr appended to a size-capped, rotated log file.
+
+    If `stream_logger` is given, output is also re-emitted live via that logger (prefixed
+    with `stream_prefix`), so it lands in journalctl too, not just the log file."""
     rotate_log_if_large(log_path, max_log_bytes)
     log_file = open(log_path, "a")
-    return subprocess.Popen(
+
+    if stream_logger is None:
+        return subprocess.Popen(
+            command, shell=True, cwd=cwd, env=env,
+            stdout=log_file, stderr=subprocess.STDOUT,
+            preexec_fn=os.setsid
+        )
+
+    process = subprocess.Popen(
         command, shell=True, cwd=cwd, env=env,
-        stdout=log_file, stderr=subprocess.STDOUT,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         preexec_fn=os.setsid
     )
+
+    def _pump():
+        try:
+            for line in process.stdout:
+                log_file.write(line)
+                log_file.flush()
+                stream_logger.info(f"[{stream_prefix}] {line.rstrip()}")
+        finally:
+            log_file.close()
+
+    threading.Thread(target=_pump, daemon=True).start()
+    return process
 
 
 def terminate_process_group(process, timeout=5):
