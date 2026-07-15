@@ -22,6 +22,9 @@ class HomeAssistantClient:
         # unique_id -> {'to_canonical': {display: canonical}, 'to_display': {canonical: display}},
         # only populated for selects using the "{{apps_all}}" options shorthand
         self._select_maps = {}
+        # unique_id -> {attribute_name: dotted_path}, from each sensor's entities.yaml
+        # `attributes:` — kept around so refresh_sensor_attributes() can re-resolve them later
+        self._sensor_attribute_specs = {}
 
         # Connect asynchronously so a down/absent network never blocks or raises here;
         # the network loop thread keeps retrying with backoff until the broker is reachable.
@@ -75,6 +78,36 @@ class HomeAssistantClient:
                 original_on_connect(client, userdata, *args)
             entity.set_availability(True)
         entity.mqtt_client.on_connect = on_connect
+
+    def _resolve_dotted(self, dotted_path):
+        """Resolve a dotted path like "utils.get_ip_address" against self (which holds
+        tv/supervisor/utils), returning the bound method."""
+        parts = dotted_path.split('.')
+        obj = self
+        for part in parts[:-1]:
+            obj = getattr(obj, part)
+        return getattr(obj, parts[-1])
+
+    def _resolve_attributes(self, attribute_specs):
+        """Resolve entities.yaml's `attributes: {name: dotted.path}` into a plain dict of
+        current values, e.g. {"uptime": "2h 14m"}. A path that fails to resolve, or whose
+        value is None, is simply omitted rather than surfacing as a broken attribute in HA."""
+        resolved = {}
+        for name, dotted_path in attribute_specs.items():
+            try:
+                value = self._resolve_dotted(dotted_path)()
+            except AttributeError as e:
+                logger.error(f"Error resolving attribute '{name}' ({dotted_path}): {e}")
+                continue
+            if value is not None:
+                resolved[name] = value
+        return resolved
+
+    def refresh_sensor_attributes(self):
+        """Re-resolve and push every sensor's declared `attributes` (see entities.yaml) —
+        called periodically by Supervisor for attributes that change over time, like uptime."""
+        for unique_id, attribute_specs in self._sensor_attribute_specs.items():
+            self.update_sensor_attributes(unique_id, self._resolve_attributes(attribute_specs))
 
     def setup_discovery(self):
         if 'binary_sensors' in self.entities and len(self.entities['binary_sensors']) > 0:
@@ -326,6 +359,13 @@ class HomeAssistantClient:
                     logger.info(f"Sensor {sensor['unique_id']} initialized with state: {state}")
                 else:
                     logger.warning(f"Sensor {sensor['unique_id']} state is None or could not be resolved")
+
+                # Resolve and set any declared attributes (e.g. "uptime" on "Current App"),
+                # and remember the spec so refresh_sensor_attributes() can re-resolve it later
+                attribute_specs = sensor.get('attributes')
+                if attribute_specs:
+                    self._sensor_attribute_specs[sensor['unique_id']] = attribute_specs
+                    sensor_entity.set_attributes(self._resolve_attributes(attribute_specs))
             except Exception as e:
                 logger.warning(f"Failed to set up sensor {sensor.get('unique_id')}: {e}")
 

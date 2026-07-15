@@ -96,6 +96,13 @@ class Supervisor:
             return NO_APP_RUNNING
         return self.apps.apps.get(name, {}).get('name', name)
 
+    def get_current_app_uptime(self):
+        """Formatted uptime of the currently running app (e.g. "2h 14m"), or None if
+        nothing's running. Referenced from entities.yaml's "attributes" on the Current
+        App sensor, not called directly."""
+        uptime_seconds = self.apps.get_uptime_seconds()
+        return format_duration(uptime_seconds) if uptime_seconds is not None else None
+
     def _notify_current_app(self):
         """Push the currently running app to the "Current App" sensor and "App Switcher"
         select. NO_APP_RUNNING is itself a valid app_switcher option, so it's used as-is
@@ -119,9 +126,7 @@ class Supervisor:
         if not self.ha_client:
             return
 
-        app_uptime_seconds = self.apps.get_uptime_seconds()
-        attributes = {"uptime": format_duration(app_uptime_seconds)} if app_uptime_seconds is not None else {}
-        self.ha_client.update_sensor_attributes("current_app", attributes)
+        self.ha_client.refresh_sensor_attributes()  # e.g. Current App's "uptime" attribute
 
         if self.utils:
             self.ha_client.update_sensor("pi_uptime", self.utils.get_pi_uptime())

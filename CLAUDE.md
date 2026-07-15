@@ -114,7 +114,10 @@ callbacks, not driven from the main thread.
   it's reachable by attribute lookup from `HomeAssistantClient` (it holds `supervisor`, `tv`, `utils`).
   Selects using the `"{{apps_all}}"`/`"{{apps}}"` options shorthand maintain a canonical-value
   (apps.yaml key) ↔ display-value (app's HA-visible name) map per entity, since HA shows/sends the
-  display string but callbacks and persisted state use the canonical key.
+  display string but callbacks and persisted state use the canonical key. A sensor can also declare
+  `attributes: {name: dotted.path}` in `entities.yaml` (e.g. Current App's `uptime`) — resolved the
+  same way as `state:` at setup, and re-resolved on demand via `refresh_sensor_attributes()` (kept
+  track of in `_sensor_attribute_specs`), which is what `Supervisor`'s periodic uptime loop calls.
 
 - **`app/buttons.py`** (`ButtonHandler`, `load_buttons`) — wraps `gpiozero.Button` with press-count
   (single/double/triple/...) and hold disambiguation: each `when_released` bumps a counter and

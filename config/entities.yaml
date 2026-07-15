@@ -60,6 +60,11 @@ sensors:
     unique_id: "current_app"
     state: "supervisor.get_current_app_display_name"
     icon: "mdi:application"
+    # Each key becomes an attribute on this sensor, resolved (and periodically re-resolved,
+    # for ones like uptime that change over time) the same way `state:` is — a dotted path
+    # against tv/supervisor/utils.
+    attributes:
+      uptime: "supervisor.get_current_app_uptime"
 
 buttons:
   - name: "Reboot Pi"
