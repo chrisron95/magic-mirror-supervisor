@@ -195,3 +195,12 @@ selects:
     default_option: "Normal"
     callback: "set_uxplay_rotation"
     icon: "mdi:screen-rotation"
+
+  - name: "AirPlay Audio Mode"
+    unique_id: "uxplay_audio_mode"
+    # Must match app/supervisor.py's UXPLAY_AUDIO_MODE_OPTIONS keys exactly. Same
+    # restart-if-running behavior as AirPlay Orientation, and for the same reason.
+    options: ["Video & Audio", "Audio Only"]
+    default_option: "Video & Audio"
+    callback: "set_uxplay_audio_mode"
+    icon: "mdi:volume-high"

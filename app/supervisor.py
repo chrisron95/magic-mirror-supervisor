@@ -24,6 +24,13 @@ UXPLAY_ROTATION_OPTIONS = {
     "Upside Down": "-f I",
 }
 
+# "-vs 0" suppresses video rendering while still playing audio; there's no server-side
+# flag for the reverse (video-only isn't something UxPlay exposes as a toggle).
+UXPLAY_AUDIO_MODE_OPTIONS = {
+    "Video & Audio": "",
+    "Audio Only": "-vs 0",
+}
+
 class Supervisor:
     def __init__(self, config, ha_client, sounds, tv, utils, settings_store, apps_config, user_home=None, secrets=None, services_config=None):
         self.config = config
@@ -168,8 +175,11 @@ class Supervisor:
         self.ha_client.update_switch(name, "ON" if running else "OFF")
 
     def start_uxplay(self):
-        rotation = self.get_uxplay_rotation()
-        self.services.start("uxplay", extra_args=UXPLAY_ROTATION_OPTIONS[rotation])
+        extra_args = " ".join(filter(None, [
+            UXPLAY_ROTATION_OPTIONS[self.get_uxplay_rotation()],
+            UXPLAY_AUDIO_MODE_OPTIONS[self.get_uxplay_audio_mode()],
+        ]))
+        self.services.start("uxplay", extra_args=extra_args)
 
     def stop_uxplay(self):
         self.services.stop("uxplay")
@@ -191,6 +201,23 @@ class Supervisor:
         self.settings_store.set("uxplay_rotation", value)
         if self.ha_client:
             self.ha_client.update_select("uxplay_rotation", value)
+        if self.services.is_running("uxplay"):
+            self.stop_uxplay()
+            self.start_uxplay()
+
+    def get_uxplay_audio_mode(self):
+        """Persisted AirPlay audio mode (a UXPLAY_AUDIO_MODE_OPTIONS key)."""
+        return self.settings_store.get("uxplay_audio_mode", "Video & Audio")
+
+    def set_uxplay_audio_mode(self, value):
+        """Same live-restart-if-running behavior as set_uxplay_rotation, and for the
+        same reason: UxPlay only applies -vs at launch."""
+        if value not in UXPLAY_AUDIO_MODE_OPTIONS:
+            logging.warning(f"Ignoring invalid uxplay audio mode selection: {value}")
+            return
+        self.settings_store.set("uxplay_audio_mode", value)
+        if self.ha_client:
+            self.ha_client.update_select("uxplay_audio_mode", value)
         if self.services.is_running("uxplay"):
             self.stop_uxplay()
             self.start_uxplay()

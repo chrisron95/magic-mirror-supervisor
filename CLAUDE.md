@@ -125,8 +125,11 @@ callbacks, not driven from the main thread.
   service means adding both a `services.yaml` entry and one more such wrapper trio here.
   `start_autostart_services()` (called once from `main.py`, not gated on network) is the general path
   for `autostart: true` services, but special-cases `uxplay` to go through `start_uxplay()` — otherwise
-  the persisted rotation (`UXPLAY_ROTATION_OPTIONS`, set via `set_uxplay_rotation`/the "AirPlay
-  Orientation" select, persisted in `data/settings.yaml`) would be silently dropped on every boot.
+  the persisted rotation/audio-mode settings (`UXPLAY_ROTATION_OPTIONS` +
+  `UXPLAY_AUDIO_MODE_OPTIONS`, set via `set_uxplay_rotation`/`set_uxplay_audio_mode` — the "AirPlay
+  Orientation"/"AirPlay Audio Mode" selects — persisted in `data/settings.yaml`) would be silently
+  dropped on every boot. `start_uxplay()` joins both option dicts' flags into one `extra_args` string
+  (e.g. `"-r R -vs 0"`) passed to `ServiceManager.start`.
 
 - **`app/home_assistant_client.py`** (`HomeAssistantClient`) — MQTT discovery/sync via
   `ha-mqtt-discoverable`. Two connection strategies coexist: `BinarySensor`/`Sensor` reuse one shared
