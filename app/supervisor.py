@@ -1,3 +1,4 @@
+import json
 import subprocess
 import logging
 import os
@@ -76,15 +77,17 @@ class Supervisor:
             logging.warning("No apps configured; nothing to select")
             return
 
-        display_names = {app_config.get('name', key): key for key, app_config in apps.items()}
+        display_names = {key: app_config.get('name', key) for key, app_config in apps.items()}
+        popup_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "button_popup.py")
+        request = {"title": "Choose an app to open", "options": display_names}
         process = subprocess.run(
-            ["wofi", "--dmenu", "-p", "Choose an app to open"],
-            input="\n".join(display_names), capture_output=True, text=True,
+            ["python3", popup_script],
+            input=json.dumps(request), capture_output=True, text=True,
         )
 
         response = process.stdout.strip()
-        if response in display_names:
-            self.start_app(display_names[response])
+        if response in apps:
+            self.start_app(response)
 
     def start_default_app(self):
         """Start the default app: a persisted (HA-selected) choice wins over config.yaml's fallback."""
