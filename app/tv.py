@@ -29,6 +29,15 @@ class TV:
         self.inputs = inputs or self.DEFAULT_INPUTS
         self.lock = threading.RLock()  # serializes all cec-client access; reentrant since command methods hold it across their own status-check calls
 
+        # Tracks whatever cec-client process is currently running, so a user-initiated
+        # command can cancel it (if it's just the background poll) instead of being
+        # dropped outright — see _acquire_for_command. Guarded by its own small lock
+        # rather than self.lock, since it needs to be read/written from a thread that by
+        # definition doesn't hold self.lock (that's the point of it being busy).
+        self._current_process = None
+        self._current_is_background = False
+        self._current_op_lock = threading.Lock()
+
         # Set a default before checking the actual power status
         self.is_on = False
         self.power_thread = threading.Thread(target=self.initialize_power_status, daemon=True)
@@ -57,7 +66,7 @@ class TV:
                 # halves CEC bus traffic per cycle. _apply_hdmi_label runs first since
                 # update_input() (called via _parse_active_source's side effects, below)
                 # reads _hdmi_label for the "TV Input" select's current value.
-                output = self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT)
+                output = self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT, background=True)
                 self._apply_hdmi_label(self._parse_hdmi_device_name(output))
                 self._parse_active_source(output)
                 self.update_input()
@@ -82,12 +91,15 @@ class TV:
             self.internal_input = detected_input  # Save valid input
             self.update_input()  # Update Home Assistant with the detected input
 
-    def _run_cec_command(self, cec_command, timeout=None):
-        """Run a cec-client command, returning its stdout (empty string on failure/timeout).
-        Serialized via self.lock — concurrent invocations stall each other out. Runs in its
-        own process group and is fully killed (not just the shell wrapper) on timeout —
-        without that, a hung cec-client can outlive the timeout and keep holding the CEC
-        adapter open, making every subsequent command fail too."""
+    def _run_cec_command(self, cec_command, timeout=None, background=False):
+        """Run a cec-client command, returning its stdout (empty string on failure,
+        timeout, or cancellation). Serialized via self.lock — concurrent invocations stall
+        each other out. Runs in its own process group and is fully killed (not just the
+        shell wrapper) on timeout — without that, a hung cec-client can outlive the
+        timeout and keep holding the CEC adapter open, making every subsequent command
+        fail too. `background=True` marks this call as cancellable by
+        _acquire_for_command — used only by the periodic poll's routine scan, so a
+        user-initiated command isn't stuck waiting behind it."""
         timeout = timeout or self.CEC_TIMEOUT
         with self.lock:
             process = subprocess.Popen(
@@ -95,6 +107,9 @@ class TV:
                 shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 preexec_fn=os.setsid
             )
+            with self._current_op_lock:
+                self._current_process = process
+                self._current_is_background = background
             try:
                 stdout, _ = process.communicate(timeout=timeout)
                 return stdout
@@ -105,6 +120,34 @@ class TV:
                 # here is extra time self.lock stays held, blocking any other TV command.
                 terminate_process_group(process, timeout=2)
                 return ""
+            finally:
+                with self._current_op_lock:
+                    if self._current_process is process:
+                        self._current_process = None
+                        self._current_is_background = False
+
+    def _acquire_for_command(self, description):
+        """Acquire self.lock for a user-initiated command (power on/standby/input switch).
+        If it's already held by the background poll's routine scan, cancel that scan
+        instead of making the user wait behind it — routine housekeeping shouldn't block
+        something a user is actively doing. Never cancels another user-initiated command
+        that's still in flight; that still just gets logged and dropped, same as before,
+        so two deliberate actions in a row don't step on each other unpredictably."""
+        if self.lock.acquire(blocking=False):
+            return True
+
+        with self._current_op_lock:
+            process = self._current_process
+            is_background = self._current_is_background
+        if process is None or not is_background:
+            return False
+
+        logging.info(f"Cancelling in-progress background scan to run: {description}")
+        terminate_process_group(process, timeout=2)
+        # The cancelled call's own `with self.lock:` releases it as soon as
+        # communicate() unblocks from the kill, which should be near-immediate — this
+        # blocking acquire is just to wait out that short handoff, not a real contention.
+        return self.lock.acquire(blocking=True, timeout=5)
 
     def check_power_status(self):
         """Check if the TV is on or in standby and update Home Assistant."""
@@ -153,7 +196,7 @@ class TV:
             logging.info("Power-on request ignored: TV is already ON.")
             return
 
-        if not self.lock.acquire(blocking=False):
+        if not self._acquire_for_command("power on"):
             logging.info("TV command already in progress, ignoring power-on request.")
             return
 
@@ -183,7 +226,7 @@ class TV:
             logging.info("Standby request ignored: TV is already OFF.")
             return
 
-        if not self.lock.acquire(blocking=False):
+        if not self._acquire_for_command("standby"):
             logging.info("TV command already in progress, ignoring standby request.")
             return
 
@@ -332,7 +375,7 @@ class TV:
             logging.warning(f"Unknown TV input '{desired_source}'; not switching")
             return
 
-        if not self.lock.acquire(blocking=False):
+        if not self._acquire_for_command(f"input switch to {desired_source}"):
             logging.info(f"TV command already in progress, ignoring input switch to {desired_source}.")
             return
 

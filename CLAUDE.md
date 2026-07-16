@@ -78,9 +78,16 @@ threads (button GPIO callbacks, MQTT client loop, app/service-monitor threads) o
 callbacks, not driven from the main thread.
 
 - **`app/tv.py`** (`TV`) — HDMI-CEC control via shelling out to `cec-client`. All CEC access is
-  serialized through a single `RLock` (concurrent `cec-client` invocations stomp on each other); power-on
-  and standby acquire it non-blocking and bail out with a log if a command is already in flight, rather
-  than queuing. `_run_cec_command` spawns `cec-client` in its own process group (`preexec_fn=os.setsid`)
+  serialized through a single `RLock`. Three user-initiated entry points (`power_on`/`standby`/
+  `set_input`) go through `_acquire_for_command` instead of acquiring `self.lock` directly: it tries a
+  non-blocking acquire first, and if that's held by the periodic poll's routine `"scan"` (marked
+  `background=True` in the one `_run_cec_command` call inside `_poll_loop` — see `_current_process`/
+  `_current_is_background`, tracked under their own small `_current_op_lock` since they need to be
+  read from a thread that by definition doesn't hold `self.lock`), cancels it via
+  `terminate_process_group` so the user's command doesn't wait behind routine housekeeping. It
+  deliberately never cancels another *user-initiated* command still in flight — that still just logs
+  and drops, same as before, so two deliberate actions can't step on each other unpredictably.
+  `_run_cec_command` spawns `cec-client` in its own process group (`preexec_fn=os.setsid`)
   and kills the whole group (via `process_utils.terminate_process_group`) on timeout — plain
   `subprocess.run(..., timeout=)` under `shell=True` only kills the shell, not `cec-client` itself,
   which can then linger holding the adapter open and make every subsequent command fail with
