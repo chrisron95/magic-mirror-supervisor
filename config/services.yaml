@@ -12,7 +12,7 @@ services:
     # without it, uxplay's own output sits in its libc buffer and only appears all at
     # once when the process exits, making the live log look like nothing happens until
     # then.
-    command: "stdbuf -oL -eL uxplay -n MagicMirror -nh -fs -avdec -nofreeze -nohold -nc no -vs ximagesink"
+    command: "stdbuf -oL -eL uxplay -n MagicMirror -nh -fs -avdec -nofreeze -nohold -nc no"
     restart: true
     autostart: true
 
