@@ -194,6 +194,7 @@ selects:
     options: ["Normal", "Rotate Right", "Rotate Left", "Upside Down"]
     default_option: "Normal"
     callback: "set_uxplay_rotation"
+    entity_category: "config"
     icon: "mdi:screen-rotation"
 
   - name: "AirPlay Audio Mode"
@@ -203,4 +204,5 @@ selects:
     options: ["Video & Audio", "Audio Only"]
     default_option: "Video & Audio"
     callback: "set_uxplay_audio_mode"
+    entity_category: "config"
     icon: "mdi:volume-high"
