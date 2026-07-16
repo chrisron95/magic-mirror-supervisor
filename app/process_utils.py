@@ -24,16 +24,17 @@ def rotate_log_if_large(log_path, max_bytes):
         logger.warning(f"Failed to rotate log {log_path}: {e}")
 
 
-def spawn_logged(command, cwd, env, log_path, max_log_bytes, stream_logger=None, stream_prefix=""):
+def spawn_logged(command, cwd, env, log_path, max_log_bytes, stream_logger=None, stream_prefix="", line_callback=None):
     """Launch `command` in its own process group (so the whole subtree can be killed
     together later), with stdout/stderr appended to a size-capped, rotated log file.
 
     If `stream_logger` is given, output is also re-emitted live via that logger (prefixed
-    with `stream_prefix`), so it lands in journalctl too, not just the log file."""
+    with `stream_prefix`), so it lands in journalctl too, not just the log file.
+    If `line_callback` is given, it's called with each raw output line as it arrives."""
     rotate_log_if_large(log_path, max_log_bytes)
     log_file = open(log_path, "a")
 
-    if stream_logger is None:
+    if stream_logger is None and line_callback is None:
         return subprocess.Popen(
             command, shell=True, cwd=cwd, env=env,
             stdout=log_file, stderr=subprocess.STDOUT,
@@ -51,7 +52,10 @@ def spawn_logged(command, cwd, env, log_path, max_log_bytes, stream_logger=None,
             for line in process.stdout:
                 log_file.write(line)
                 log_file.flush()
-                stream_logger.info(f"[{stream_prefix}] {line.rstrip()}")
+                if stream_logger:
+                    stream_logger.info(f"[{stream_prefix}] {line.rstrip()}")
+                if line_callback:
+                    line_callback(line)
         finally:
             log_file.close()
 

@@ -5,16 +5,17 @@ services:
     environment:
       DISPLAY: ":0.0"
       XAUTHORITY: "{{user_home}}/.Xauthority"
-    # -vs ximagesink avoids a documented GStreamer bug where the default (autovideosink
-    # picking glimagesink, its OpenGL renderer) window doesn't actually close when the
-    # client sends "Stop Mirroring" or -nofreeze's offline-reset fires.
     # stdbuf -oL forces line-buffered stdout even though it's piped (not a terminal) —
     # without it, uxplay's own output sits in its libc buffer and only appears all at
     # once when the process exits, making the live log look like nothing happens until
     # then.
-    command: "stdbuf -oL -eL uxplay -n MagicMirror -nh -fs -avdec -nofreeze -nohold -nc no"
+    command: "stdbuf -oL -eL uxplay -n MagicMirror -nh -fs -avdec -nofreeze -nohold"
     restart: true
     autostart: true
+    # UxPlay never clears its window on its own when a client disconnects (confirmed via
+    # live logs — nothing happens between "Connection closed" and us killing it), so we
+    # force a fresh process/window ourselves the moment this line appears.
+    restart_on_output: "raop_rtp_mirror->running is no longer true"
 
 # Unlike apps.yaml, any number of these can run at once, alongside whatever app is
 # currently showing — they're independent background services (matching how they ran as

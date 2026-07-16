@@ -108,15 +108,37 @@ class ServiceManager:
 
         logger.info(f"[{name}] command: {command}")
         log_path = os.path.join(self.log_dir, f"{name}.log")
-        process = spawn_logged(command, working_directory, env, log_path, self.MAX_LOG_BYTES,
-                                stream_logger=logger, stream_prefix=name)
-        self._running[name] = process
 
         generation = self._generation[name]
+        restart_trigger = service.get('restart_on_output')
+        line_callback = None
+        if restart_trigger:
+            def line_callback(line, generation=generation):
+                if restart_trigger in line:
+                    threading.Thread(target=self._restart_on_trigger, args=(name, generation), daemon=True).start()
+
+        process = spawn_logged(command, working_directory, env, log_path, self.MAX_LOG_BYTES,
+                                stream_logger=logger, stream_prefix=name, line_callback=line_callback)
+        self._running[name] = process
+
         if service.get('restart', True):
             threading.Thread(target=self._monitor, args=(name, generation), daemon=True).start()
 
         self._notify(name, True)
+
+    def _restart_on_trigger(self, name, generation):
+        """Restart a still-running service because its own output matched
+        `restart_on_output` (e.g. UxPlay never clears its window on client disconnect,
+        so we force a fresh process/window instead). Runs on its own thread since it's
+        invoked from the pump thread reading the process's stdout — stop()'s
+        process.wait() would otherwise block against the very pipe it's draining."""
+        with self._lock:
+            if self._generation.get(name) != generation:
+                return
+            extra_args = self._extra_args.get(name, "")
+            logger.info(f"Service '{name}' output matched restart trigger; restarting")
+        self.stop(name)
+        self.start(name, extra_args=extra_args)
 
     def _monitor(self, name, generation):
         """Wait for the service's process to exit, and relaunch it if nothing else has

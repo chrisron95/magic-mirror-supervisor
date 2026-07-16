@@ -108,7 +108,15 @@ callbacks, not driven from the main thread.
   since Chromium/MagicMirror console output would be far too chatty for that. "Live" depends on the
   service's own command being at least line-buffered on its piped stdout — most C programs (UxPlay
   included) fully block-buffer instead once stdout isn't a terminal, so `services.yaml` commands that
-  want to actually show up in real time may need a `stdbuf -oL -eL` prefix, as UxPlay's does.
+  want to actually show up in real time may need a `stdbuf -oL -eL` prefix, as UxPlay's does. A
+  service can also declare `restart_on_output: "<substring>"`; `_launch` passes a `line_callback` (also
+  threaded through `spawn_logged`, reusing the same pump thread) that restarts the service — on a
+  fresh thread, not inline, since that callback runs on the very pump thread reading the dying
+  process's stdout — the moment its output contains that text. This is how UxPlay gets a fresh
+  window on client disconnect: it never clears its own window on "Stop Mirroring" (confirmed via live
+  logs), so the supervisor forces a restart itself instead of trusting UxPlay to. The generation check
+  inside that restart path is what stops it from firing spuriously if the matched text happens to
+  appear in the process's own shutdown output during an unrelated explicit `stop()`.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus
