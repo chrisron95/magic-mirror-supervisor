@@ -70,19 +70,21 @@ class Supervisor:
         self.start_app(apps[(current_index + 1) % len(apps)])
 
     def app_selector(self):
-        """Choose which configured app to open, via a desktop notification menu."""
+        """Choose which configured app to open, via an on-screen picker."""
         apps = self.apps.apps
         if not apps:
             logging.warning("No apps configured; nothing to select")
             return
 
-        command = ["notify-send", "Smart Mirror", "Choose an app to open:"]
-        command += [f"--action={key}={app_config.get('name', key)}" for key, app_config in apps.items()]
-        process = subprocess.run(command, capture_output=True, text=True)
+        display_names = {app_config.get('name', key): key for key, app_config in apps.items()}
+        process = subprocess.run(
+            ["wofi", "--dmenu", "-p", "Choose an app to open"],
+            input="\n".join(display_names), capture_output=True, text=True,
+        )
 
         response = process.stdout.strip()
-        if response in apps:
-            self.start_app(response)
+        if response in display_names:
+            self.start_app(display_names[response])
 
     def start_default_app(self):
         """Start the default app: a persisted (HA-selected) choice wins over config.yaml's fallback."""

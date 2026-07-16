@@ -99,6 +99,7 @@ Before getting started, please ensure the following are already set up:
 - **IR Touch Screen Overlay**: The setup assumes you have an IR touch screen overlay for the mirror, such as the [IR Touch Screen on Amazon](https://a.co/d/fW02iNM) that makes it a touchscreen interface.
 - **grim** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install grim`.
 - **uxplay** (optional): Only needed for the built-in `uxplay` entry in `services.yaml` (AirPlay mirroring) — see [UxPlay](https://github.com/FDH2/UxPlay) for install instructions. Remove that entry (or replace it with your own service) if you don't need AirPlay.
+- **wofi**: Powers the on-screen app-switcher picker (`Supervisor.app_selector`). Install with `sudo apt install wofi`.
 
 ---
 
