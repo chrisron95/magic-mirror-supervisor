@@ -6,6 +6,7 @@ import logging
 
 class TV:
     CEC_TIMEOUT = 10  # seconds; prevents a hung cec-client from blocking button/MQTT threads indefinitely
+    POLL_INTERVAL = 30  # seconds between background power/input polls, to catch changes made via the TV's own remote rather than through us
 
     def __init__(self, address, ha_client):
         self.address = address
@@ -23,6 +24,19 @@ class TV:
         # Start the input check in a separate thread so buttons remain responsive
         self.input_thread = threading.Thread(target=self.initialize_input, daemon=True)
         self.input_thread.start()
+
+        threading.Thread(target=self._poll_loop, daemon=True).start()
+
+    def _poll_loop(self):
+        """Periodically re-check power/input state — the only way to notice a change made
+        via the TV's own remote instead of through us, since otherwise we only ever query
+        the TV in response to our own commands."""
+        while True:
+            time.sleep(self.POLL_INTERVAL)
+            self.check_power_status()
+            if self.is_on:
+                self.get_active_source()
+                self.update_input()
 
     def initialize_power_status(self):
         """Background thread to check initial TV power status."""

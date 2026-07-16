@@ -80,7 +80,12 @@ callbacks, not driven from the main thread.
   serialized through a single `RLock` (concurrent `cec-client` invocations stomp on each other); power-on
   and standby acquire it non-blocking and bail out with a log if a command is already in flight, rather
   than queuing. Power/input state is tracked in-memory (`is_on`, `internal_input`) and pushed to HA
-  proactively on change rather than HA polling for it.
+  proactively on change rather than HA polling for it. `get_current_input()` reports "Off" whenever
+  `is_on` is false instead of a stale HDMI reading — `internal_input` itself is left untouched so the
+  real last input is still there once the TV powers back on. A `_poll_loop` background thread (started
+  in `__init__`, `POLL_INTERVAL` seconds) re-checks power/input periodically — the only way to notice a
+  change made via the TV's own remote, since every other code path here only queries the TV in response
+  to our own commands.
 
 - **`app/apps.py`** (`AppManager`) — owns the currently-running app's process group. `start()` always
   stops whatever's running first (only one app runs at a time). Each launched app gets a monotonically
@@ -132,8 +137,8 @@ callbacks, not driven from the main thread.
   app launch) refreshes all three uptime-flavored values every `UPTIME_REFRESH_INTERVAL` seconds via
   `_push_uptimes`: the "Current App" sensor's `uptime` attribute (from `AppManager.get_uptime_seconds()`,
   read fresh each tick so it self-heals after a crash/liveness restart without AppManager needing to call
-  back into it), plus the "Pi Uptime" and "Supervisor Uptime" sensors (from `Utils`). This is the only
-  polling loop in the codebase; everything else pushes on change. Also owns thin per-service wrapper
+  back into it), plus the "Pi Uptime" and "Supervisor Uptime" sensors (from `Utils`). `TV._poll_loop` is
+  the only other polling loop in the codebase; everything else pushes on change. Also owns thin per-service wrapper
   methods (e.g. `start_uxplay`/`stop_uxplay`/`is_uxplay_running`, delegating to `ServiceManager`) since
   HA switch callbacks in `entities.yaml` are zero-argument dotted paths — adding another independent
   service means adding both a `services.yaml` entry and one more such wrapper trio here.
