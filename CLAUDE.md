@@ -92,7 +92,14 @@ callbacks, not driven from the main thread.
   TV command. `wait_for_input_switch`'s retry loop tracks real wall-clock time (`time.monotonic()`), not
   a fixed per-iteration increment — the latter let one slow/timed-out `get_active_source()` call (up to
   `CEC_TIMEOUT` + kill grace) silently blow the loop's nominal budget several times over, since
-  `elapsed += interval` didn't account for how long that call actually took. Power/input
+  `elapsed += interval` didn't account for how long that call actually took. `"scan"` (walks the whole
+  CEC bus — every device, not just one) gets its own longer `SCAN_TIMEOUT` (20s vs. `CEC_TIMEOUT`'s
+  10s) — confirmed via real logs that `"pow"` (single-device) never times out while `"scan"` regularly
+  does, so this is a genuine cost-of-the-operation difference, not adapter contention; a full Pi reboot
+  didn't change the pattern either. `wait_for_input_switch`'s own default `timeout` (25s) is set above
+  `SCAN_TIMEOUT` so its retry loop can actually fit at least one full scan attempt. `POLL_INTERVAL`
+  (60s, was 30s) was also widened for the same reason — less frequent bus-wide scanning, since it's
+  the heavier operation. Power/input
   state is tracked in-memory (`is_on`, `internal_input`) and pushed to HA
   proactively on change rather than HA polling for it. `get_current_input()` reports "Off" whenever
   `is_on` is false instead of a stale HDMI reading — `internal_input` itself is left untouched so the

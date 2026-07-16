@@ -9,7 +9,11 @@ from .process_utils import terminate_process_group
 
 class TV:
     CEC_TIMEOUT = 10  # seconds; prevents a hung cec-client from blocking button/MQTT threads indefinitely
-    POLL_INTERVAL = 30  # seconds between background power/input polls, to catch changes made via the TV's own remote rather than through us
+    # "scan" walks the whole CEC bus (every connected device), unlike a single-device query
+    # like "pow" — in practice it reliably needs more than CEC_TIMEOUT, especially with
+    # several devices present, so it gets its own more generous budget.
+    SCAN_TIMEOUT = 20
+    POLL_INTERVAL = 60  # seconds between background power/input polls, to catch changes made via the TV's own remote rather than through us
 
     # Fallback if config.yaml doesn't declare its own tv_inputs — a name plus the CEC
     # physical address (e.g. "2.0.0.0") that switching to that input actually targets.
@@ -53,7 +57,7 @@ class TV:
                 # halves CEC bus traffic per cycle. _apply_hdmi_label runs first since
                 # update_input() (called via _parse_active_source's side effects, below)
                 # reads _hdmi_label for the "TV Input" select's current value.
-                output = self._run_cec_command("scan")
+                output = self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT)
                 self._apply_hdmi_label(self._parse_hdmi_device_name(output))
                 self._parse_active_source(output)
                 self.update_input()
@@ -65,7 +69,7 @@ class TV:
 
     def initialize_input(self):
         """Background thread to check initial TV input."""
-        output = self._run_cec_command("scan")  # shared by both lookups below, see _poll_loop
+        output = self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT)  # shared by both lookups below, see _poll_loop
         self._apply_hdmi_label(self._parse_hdmi_device_name(output))
 
         detected_input = self._parse_active_source(output)
@@ -205,7 +209,7 @@ class TV:
 
     def get_active_source(self):
         """Retrieve and track the currently active HDMI input source (a fresh scan)."""
-        return self._parse_active_source(self._run_cec_command("scan"))
+        return self._parse_active_source(self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT))
 
     def _parse_active_source(self, output):
         """Same as get_active_source(), but against already-fetched scan `output` — lets
@@ -238,7 +242,7 @@ class TV:
     def get_hdmi_device_name(self):
         """Display name of whatever CEC-aware device is on the "hdmi" input's physical
         address (a fresh scan) — see _parse_hdmi_device_name for details."""
-        return self._parse_hdmi_device_name(self._run_cec_command("scan"))
+        return self._parse_hdmi_device_name(self._run_cec_command("scan", timeout=self.SCAN_TIMEOUT))
 
     def _parse_hdmi_device_name(self, output):
         """Same as get_hdmi_device_name(), but against already-fetched scan `output`.
@@ -362,7 +366,7 @@ class TV:
         logging.info("Setting TV input to HDMI...")
         self.set_input('hdmi')
 
-    def wait_for_input_switch(self, desired_source, timeout=10, interval=2):
+    def wait_for_input_switch(self, desired_source, timeout=25, interval=2):
         """Poll the input status every `interval` seconds until `timeout` is reached."""
         logging.info(f"Waiting for TV to switch to {desired_source}...")
         start = time.monotonic()
