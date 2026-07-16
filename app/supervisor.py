@@ -167,6 +167,15 @@ class Supervisor:
         self.apps.stop()
         self._notify_current_app()
 
+    def set_tv_input(self, value):
+        """Callback for the "TV Input" select. Selecting the Pi's configured name switches
+        to it; anything else (whatever the "hdmi" input's current label is) switches to
+        that — the label can change (e.g. to "Apple TV") but always maps to the same input."""
+        if value == self.tv.inputs['rPi']['name']:
+            self.tv.set_input_rpi()
+        else:
+            self.tv.set_input_hdmi()
+
     def _on_service_state_change(self, name, running):
         """ServiceManager callback: keep a service's HA switch (unique_id == service
         name, e.g. "uxplay") in sync whenever it starts/stops, including auto-restarts."""

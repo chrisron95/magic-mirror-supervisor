@@ -186,6 +186,16 @@ selects:
     callback: "switch_to_app"
     icon: "mdi:apps"
 
+  - name: "TV Input"
+    unique_id: "tv_input"
+    # Just a sane starting default — TV.refresh_tv_input_options() corrects this shortly
+    # after boot (and whenever it changes) to match config.yaml's tv_inputs, swapping in a
+    # detected CEC device's real name (e.g. "Apple TV") for the second option when present.
+    options: ["Raspberry Pi", "HDMI 3"]
+    default_option: "Raspberry Pi"
+    callback: "set_tv_input"
+    icon: "mdi:hdmi-port"
+
   - name: "AirPlay Orientation"
     unique_id: "uxplay_rotation"
     # Must match app/supervisor.py's UXPLAY_ROTATION_OPTIONS keys exactly. Changing this

@@ -488,6 +488,18 @@ class HomeAssistantClient:
         else:
             logger.warning(f"Select with unique_id {unique_id} not found.")
 
+    def update_select_options(self, unique_id, options):
+        """Re-publish a select's available *options* (not just its current value) — e.g.
+        the "TV Input" select swapping its side-port label for a newly detected device's
+        name. Mutates the underlying entity model directly and re-writes discovery config,
+        since the library doesn't expose a dedicated method for changing options post-setup."""
+        select_entity = getattr(self, f"{unique_id}_entity", None)
+        if not select_entity:
+            logger.warning(f"Select with unique_id {unique_id} not found.")
+            return
+        select_entity._entity.options = options
+        select_entity.write_config()
+
     def update_switch(self, unique_id, state):
         switch = getattr(self, f"{unique_id}_entity", None)
         if switch:

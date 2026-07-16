@@ -212,12 +212,20 @@ manufacturer: "Raspberry Pi"
 model: "4 Model B"
 log_level: "INFO"
 default_app: "homeassistant_mirror_dashboard"
+tv_inputs:
+  rPi:
+    name: "Raspberry Pi"
+    address: "2.0.0.0"
+  hdmi:
+    name: "HDMI 3"
+    address: "3.0.0.0"
 ```
 
 - **name**: Name of your device as it appears in Home Assistant.
 - **user_home**: Absolute path to the Pi user's home directory. `apps.yaml` can reference it via `{{user_home}}` instead of hardcoding a path — used for things like the Chromium profile and the MagicMirror install location. Optional; defaults to whichever user the supervisor process runs as.
 - **log_level**: Set the logging level (e.g., `INFO`, `DEBUG`).
 - **default_app**: Which app (from `apps.yaml`) to start at boot if nothing's been selected yet via Home Assistant. See [entities.yaml](#configentitiesyaml) and [apps.yaml](#configappsyaml).
+- **tv_inputs**: The two switchable TV inputs, by CEC physical address — run `echo 'scan' | cec-client -s -d 1` to find these for your own TV/wiring (each device's `address:` field). `rPi` and `hdmi` are fixed keys the code looks up directly; `name` is what's shown in Home Assistant. This is optional — omit it to use the defaults shown above. The "TV Input" select automatically swaps the `hdmi` input's `name` for whatever CEC-aware device (e.g. an Apple TV) is actually detected at that address, falling back to the configured name when nothing CEC-capable is connected there — a non-CEC device like a laptop is invisible to a CEC scan entirely, so it'll always show the fallback name.
 
 ### **config/secrets.yaml**
 This file stores sensitive data, such as MQTT credentials and internal URLs/IPs. It's gitignored — never commit it. Any key in here can be referenced from `apps.yaml` (or elsewhere) via `{{secrets.<key>}}`, e.g. `{{secrets.ha_url}}`.
@@ -286,7 +294,8 @@ selects:
 
 - **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, Pi/Supervisor uptime, etc.) back to Home Assistant. A sensor can optionally declare `attributes` — a map of attribute name to dotted method path, resolved the same way `state` is (see "Current App"'s `uptime` above). Attributes are set once at startup like `state`, and also re-resolved periodically for any that change over time (currently just Current App's `uptime`, refreshed every 30s by `Supervisor`) — see `HomeAssistantClient.refresh_sensor_attributes`.
 - **buttons**: Defines actions that buttons can trigger, such as reboot, shutdown, or starting an app. `args` is optional and lets a button call a method with a fixed argument (e.g. `supervisor.start_app("magicmirror2")`).
-- **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`. Its `options` can be `"{{apps_all}}"` to auto-populate from `apps.yaml` — shown as each app's display `name`, with a "No Startup App" option (and default) meaning "don't auto-start anything" — or a plain list of specific app keys (e.g. `["homeassistant_mirror_dashboard", "magicmirror2"]`) to hand-pick a subset instead. Either way, an optional `default_option` overrides the pre-selected choice; it must be the app's apps.yaml *key* (or `"No Startup App"`), not its display `name`. (The option is deliberately not called "None" — Home Assistant's MQTT integration treats that exact string as a reserved sentinel for "unknown" rather than a selectable value.)
+- **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`. Its `options` can be `"{{apps_all}}"` to auto-populate from `apps.yaml` — shown as each app's display `name`, with a "No Startup App" option (and default) meaning "don't auto-start anything" — or a plain list of specific app keys (e.g. `["homeassistant_mirror_dashboard", "magicmirror2"]`) to hand-pick a subset instead. Either way, an optional `default_option` overrides the pre-selected choice; it must be the app's apps.yaml *key* (or `"No Startup App"`), not its display `name`. (The option is deliberately not called "None" — Home Assistant's MQTT integration treats that exact string as a reserved sentinel for "unknown" rather than a selectable value.) Note: unlike buttons/switches, a select's `callback` must be a plain `Supervisor` method name (e.g. `"set_tv_input"`), not a dotted path — selects don't support the `tv.`/`utils.` prefix form.
+- **"TV Input" select**: switches between the Pi and the other physical HDMI port (see `tv_inputs` in [config.yaml](#configconfigyaml)). Its options update live — the second option's name swaps automatically between the configured fallback (e.g. "HDMI 3") and whatever CEC-aware device is actually detected there (e.g. "Apple TV"), refreshed on the same background poll that keeps the "TV Current Input" sensor (which reports "Off" while the TV is off) accurate.
 
 ### **config/apps.yaml**
 This file defines the apps the supervisor can launch (Chromium kiosk, MagicMirror, or anything you add — a game, a photo slideshow, etc.), replacing what used to be separate systemd services for each. See the comments in the file itself for the schema; `supervisor.start_app("name")` and the buttons/selects above are how you trigger one.

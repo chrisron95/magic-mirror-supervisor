@@ -8,9 +8,18 @@ class TV:
     CEC_TIMEOUT = 10  # seconds; prevents a hung cec-client from blocking button/MQTT threads indefinitely
     POLL_INTERVAL = 30  # seconds between background power/input polls, to catch changes made via the TV's own remote rather than through us
 
-    def __init__(self, address, ha_client):
+    # Fallback if config.yaml doesn't declare its own tv_inputs — a name plus the CEC
+    # physical address (e.g. "2.0.0.0") that switching to that input actually targets.
+    # Re-map this (in config.yaml, not here) for a different TV/wiring instead of editing code.
+    DEFAULT_INPUTS = {
+        'rPi': {'name': 'Raspberry Pi', 'address': '2.0.0.0'},
+        'hdmi': {'name': 'HDMI 3', 'address': '3.0.0.0'},
+    }
+
+    def __init__(self, address, ha_client, inputs=None):
         self.address = address
         self.ha_client = ha_client
+        self.inputs = inputs or self.DEFAULT_INPUTS
         self.lock = threading.RLock()  # serializes all cec-client access; reentrant since command methods hold it across their own status-check calls
 
         # Set a default before checking the actual power status
@@ -20,6 +29,7 @@ class TV:
 
         # Set internal input to a default before checking the actual input
         self.internal_input = "Unknown"
+        self._hdmi_label = self.inputs['hdmi']['name']  # last name pushed to the "TV Input" select's options
 
         # Start the input check in a separate thread so buttons remain responsive
         self.input_thread = threading.Thread(target=self.initialize_input, daemon=True)
@@ -37,6 +47,7 @@ class TV:
             if self.is_on:
                 self.get_active_source()
                 self.update_input()
+            self.refresh_tv_input_options()
 
     def initialize_power_status(self):
         """Background thread to check initial TV power status."""
@@ -54,6 +65,8 @@ class TV:
             logging.info(f"TV input detected on startup: {detected_input}")
             self.internal_input = detected_input  # Save valid input
             self.update_input()  # Update Home Assistant with the detected input
+
+        self.refresh_tv_input_options()
 
     def _run_cec_command(self, cec_command, timeout=None):
         """Run a cec-client command, returning its stdout (empty string on failure/timeout).
@@ -197,6 +210,38 @@ class TV:
 
         return "Unknown"
 
+    def get_hdmi_device_name(self):
+        """Display name of whatever CEC-aware device is on the "hdmi" input's physical
+        address (e.g. "Apple TV"), or that input's configured default name if nothing
+        CEC-capable is detected there — most non-CEC devices (e.g. a laptop) are simply
+        invisible to a CEC scan, not just unnamed."""
+        address = self.inputs['hdmi']['address']
+        output = self._run_cec_command("scan")
+        return self._find_device_osd_by_address(output, address) or self.inputs['hdmi']['name']
+
+    @staticmethod
+    def _find_device_osd_by_address(scan_output, target_address):
+        """Parse `cec-client scan` output and return the "osd string" of whichever device
+        block has the given physical `address`, or None if no device is at that address."""
+        current_address = None
+        for line in scan_output.splitlines():
+            line = line.strip()
+            if line.startswith("address:"):
+                current_address = line.split(":", 1)[1].strip()
+            elif line.startswith("osd string:") and current_address == target_address:
+                return line.split(":", 1)[1].strip()
+        return None
+
+    def refresh_tv_input_options(self):
+        """Keep the "TV Input" select's options in sync with whatever's actually detected
+        on the "hdmi" port — swaps in a real device name (e.g. "Apple TV") when one's
+        CEC-aware, falls back to that input's configured default label otherwise."""
+        label = self.get_hdmi_device_name()
+        if label == self._hdmi_label:
+            return
+        self._hdmi_label = label
+        if self.ha_client:
+            self.ha_client.update_select_options("tv_input", [self.inputs['rPi']['name'], label])
 
     def update_input(self):
         """Push the currently set input source to Home Assistant."""
@@ -214,12 +259,11 @@ class TV:
         return self.internal_input
 
     def set_input(self, desired_source):
-        """Change the TV input to a specified source and confirm the switch."""
-        input_map = {
-            'rPi': "tx 1F:82:20:00",
-            'hdmi': "tx 1F:82:30:00"
-        }
-        if desired_source not in input_map:
+        """Change the TV input to a specified source (a key in self.inputs) and confirm
+        the switch."""
+        input_config = self.inputs.get(desired_source)
+        if not input_config:
+            logging.warning(f"Unknown TV input '{desired_source}'; not switching")
             return
 
         if not self.lock.acquire(blocking=False):
@@ -228,7 +272,7 @@ class TV:
 
         try:
             logging.info(f"Switching TV input to {desired_source}")
-            self._run_cec_command(input_map[desired_source])
+            self._run_cec_command(self._active_source_command(input_config['address']))
 
             # Set internal state before waiting for confirmation
             self.internal_input = desired_source
@@ -236,6 +280,15 @@ class TV:
             self.update_input()  # Update Home Assistant with the new input
         finally:
             self.lock.release()
+
+    @staticmethod
+    def _active_source_command(physical_address):
+        """Build the CEC "tx" command that makes `physical_address` (e.g. "2.0.0.0") the
+        active source, by packing its four nibbles into the two-byte Active Source payload."""
+        nibbles = [int(part) for part in physical_address.split('.')]
+        byte1 = (nibbles[0] << 4) | nibbles[1]
+        byte2 = (nibbles[2] << 4) | nibbles[3]
+        return f"tx 1F:82:{byte1:02X}:{byte2:02X}"
 
     def set_input_rpi(self):
         """Set the TV input to the Raspberry Pi."""

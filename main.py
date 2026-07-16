@@ -85,7 +85,7 @@ def main():
     # Initialize TV
     global tv
     step_start = time.monotonic()
-    tv = TV("0.0.0.0", ha_client=None)
+    tv = TV("0.0.0.0", ha_client=None, inputs=config.get('tv_inputs'))
     logger.info(f"TV initialized ({time.monotonic() - step_start:.1f}s)")
 
     # Initialize Supervisor

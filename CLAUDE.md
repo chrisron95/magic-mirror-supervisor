@@ -33,7 +33,8 @@ python main.py
 
 Runtime behavior is data-driven from six YAML files, loaded once at startup in `main.py`:
 
-- **`config.yaml`** — device name/model, log level, `default_app` fallback.
+- **`config.yaml`** — device name/model, log level, `default_app` fallback, `tv_inputs` (CEC physical
+  addresses for the switchable TV inputs — see `TV` below).
 - **`secrets.yaml`** (gitignored) — MQTT credentials, `ha_url`. Referenced elsewhere as `{{secrets.<key>}}`.
 - **`entities.yaml`** — declares every Home Assistant entity (binary_sensors, sensors, buttons,
   switches, selects) and, for each, which Python method backs its state/callback — see "dotted-path
@@ -85,7 +86,19 @@ callbacks, not driven from the main thread.
   real last input is still there once the TV powers back on. A `_poll_loop` background thread (started
   in `__init__`, `POLL_INTERVAL` seconds) re-checks power/input periodically — the only way to notice a
   change made via the TV's own remote, since every other code path here only queries the TV in response
-  to our own commands.
+  to our own commands. Switchable inputs (`self.inputs`, from `config.yaml`'s `tv_inputs`, falling back
+  to `DEFAULT_INPUTS`) are keyed `'rPi'`/`'hdmi'` with a `name` and CEC physical `address` each (e.g.
+  `"2.0.0.0"`) — `_active_source_command` derives the actual `tx 1F:82:XX:YY` CEC frame from that
+  address by packing its four nibbles into two bytes, rather than hardcoding the frame itself, so
+  re-wiring for a different TV is a `config.yaml` edit, not a code change. `set_input()` only ever
+  targets these two physical addresses; a CEC-aware device plugged into "hdmi" (e.g. an Apple TV)
+  doesn't get its own dedicated command — it's just whatever the TV routes to that address.
+  `refresh_tv_input_options` (called at startup and every poll) re-scans, extracts whatever device's
+  `osd string` is at "hdmi"'s address via `_find_device_osd_by_address`, and if that name changed,
+  pushes new options for the "TV Input" select via `HomeAssistantClient.update_select_options` — this
+  is how the select shows "Apple TV" instead of the generic fallback name once one's detected. A
+  non-CEC device (most laptops) is invisible to a CEC scan entirely — there's no way to detect or
+  name it, so the fallback label is the best available for that case.
 
 - **`app/apps.py`** (`AppManager`) — owns the currently-running app's process group. `start()` always
   stops whatever's running first (only one app runs at a time). Each launched app gets a monotonically
@@ -148,7 +161,10 @@ callbacks, not driven from the main thread.
   `UXPLAY_AUDIO_MODE_OPTIONS`, set via `set_uxplay_rotation`/`set_uxplay_audio_mode` — the "AirPlay
   Orientation"/"AirPlay Audio Mode" selects — persisted in `data/settings.yaml`) would be silently
   dropped on every boot. `start_uxplay()` joins both option dicts' flags into one `extra_args` string
-  (e.g. `"-r R -vs 0"`) passed to `ServiceManager.start`.
+  (e.g. `"-r R -vs 0"`) passed to `ServiceManager.start`. `set_tv_input` (the "TV Input" select's
+  callback) maps its selected value back to one of only two `TV` methods (`set_input_rpi`/
+  `set_input_hdmi`) by comparing against `tv.inputs['rPi']['name']` — anything else selected means
+  "hdmi", however that option is currently labeled.
 
 - **`app/home_assistant_client.py`** (`HomeAssistantClient`) — MQTT discovery/sync via
   `ha-mqtt-discoverable`. Two connection strategies coexist: `BinarySensor`/`Sensor` reuse one shared
@@ -165,6 +181,16 @@ callbacks, not driven from the main thread.
   `attributes: {name: dotted.path}` in `entities.yaml` (e.g. Current App's `uptime`) — resolved the
   same way as `state:` at setup, and re-resolved on demand via `refresh_sensor_attributes()` (kept
   track of in `_sensor_attribute_specs`), which is what `Supervisor`'s periodic uptime loop calls.
+  Note select callbacks are the one exception to "dotted path resolved from `self`" — `create_select_callback`
+  only ever calls `getattr(self.supervisor, method_name)`, so a select's `callback:` must be a plain
+  `Supervisor` method name (e.g. `"set_tv_input"`), not a dotted path like buttons/switches use.
+  `update_select_options(unique_id, options)` changes a select's *available* options (not just its
+  current value, which `update_select` already handles) by mutating `select_entity._entity.options`
+  directly and re-calling `write_config()` — there's no dedicated library method for this, and the
+  exact `Select` API differs enough across `ha-mqtt-discoverable` versions (confirmed while building
+  this: 0.25.2 has `select_option()`, but this project's deployed version logs "Publishing options..."
+  from a `set_options()` method instead) that mutating the entity model directly is the more
+  version-stable bet. TV Input's select uses this to swap in a detected CEC device's real name.
 
 - **`app/buttons.py`** (`ButtonHandler`, `load_buttons`) — wraps `gpiozero.Button` with press-count
   (single/double/triple/...) and hold disambiguation: each `when_released` bumps a counter and
