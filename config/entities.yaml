@@ -60,9 +60,7 @@ sensors:
     unique_id: "current_app"
     state: "supervisor.get_current_app_display_name"
     icon: "mdi:application"
-    # Each key becomes an attribute on this sensor, resolved (and periodically re-resolved,
-    # for ones like uptime that change over time) the same way `state:` is — a dotted path
-    # against tv/supervisor/utils.
+    # Each key becomes an attribute, resolved the same way `state:` is.
     attributes:
       uptime: "supervisor.get_current_app_uptime"
 
@@ -147,9 +145,7 @@ switches:
     state: "tv.get_power_status"
 
   - name: "AirPlay"
-    # unique_id must match the service's key in config/services.yaml — Supervisor uses it
-    # directly to look up and to push state changes back (see _on_service_state_change).
-    unique_id: "uxplay"
+    unique_id: "uxplay"  # must match the service's key in config/services.yaml
     on_callback: "supervisor.start_uxplay"
     off_callback: "supervisor.stop_uxplay"
     state: "supervisor.is_uxplay_running"
@@ -189,9 +185,7 @@ selects:
 
   - name: "TV Input"
     unique_id: "tv_input"
-    # Just a sane starting default — TV's startup scan and background poll correct this
-    # shortly after boot (and whenever it changes) to match config.yaml's tv_inputs,
-    # swapping in a detected CEC device's real name (e.g. "Apple TV") for the second option.
+    # Starting default only -- TV corrects this at boot to match config.yaml's tv_inputs.
     options: ["Raspberry Pi", "HDMI 3"]
     default_option: "Raspberry Pi"
     callback: "set_tv_input"
@@ -199,9 +193,7 @@ selects:
 
   - name: "AirPlay Orientation"
     unique_id: "uxplay_rotation"
-    # Must match app/supervisor.py's UXPLAY_ROTATION_OPTIONS keys exactly. Changing this
-    # restarts AirPlay immediately if it's currently running (UxPlay only applies rotation
-    # at launch), otherwise it just takes effect the next time AirPlay starts.
+    # Must match app/supervisor.py's UXPLAY_ROTATION_OPTIONS keys.
     options: ["Normal", "Rotate Right", "Rotate Left", "Upside Down"]
     default_option: "Normal"
     callback: "set_uxplay_rotation"
@@ -210,8 +202,7 @@ selects:
 
   - name: "AirPlay Audio Mode"
     unique_id: "uxplay_audio_mode"
-    # Must match app/supervisor.py's UXPLAY_AUDIO_MODE_OPTIONS keys exactly. Same
-    # restart-if-running behavior as AirPlay Orientation, and for the same reason.
+    # Must match app/supervisor.py's UXPLAY_AUDIO_MODE_OPTIONS keys.
     options: ["Video & Audio", "Audio Only"]
     default_option: "Video & Audio"
     callback: "set_uxplay_audio_mode"

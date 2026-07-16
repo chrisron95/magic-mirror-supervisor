@@ -10,9 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ServiceManager:
     """Starts/stops independent background services (e.g. UxPlay) defined in
-    config/services.yaml. Unlike AppManager's apps — where only one runs at a time —
-    any number of services can run concurrently with each other and with whatever app
-    is currently showing, matching how they ran as separate systemd units before."""
+    config/services.yaml. Unlike AppManager's apps, any number can run concurrently."""
 
     RESTART_DELAY = 2  # seconds to wait before relaunching a service that exited unexpectedly
     MAX_LOG_BYTES = 5 * 1024 * 1024  # rotate a log past this size, keeping one backup
@@ -26,8 +24,7 @@ class ServiceManager:
         self._lock = threading.RLock()
         self._running = {}     # name -> subprocess.Popen, present only while actually running
         self._generation = {}  # name -> int; bumped by stop() to stand down any in-flight monitor
-        self._extra_args = {}  # name -> extra CLI args appended to the base command, set by start()
-                                # and preserved across auto-restarts (e.g. UxPlay's rotation flag)
+        self._extra_args = {}  # name -> extra CLI args appended to the base command
 
     def _resolve_services(self, raw_services, user_home, secrets):
         """Substitute {{user_home}}, {{uid}}, {{secrets.<key>}} — same placeholders
@@ -58,8 +55,8 @@ class ServiceManager:
             return process is not None and process.poll() is None
 
     def start(self, name, extra_args=""):
-        """`extra_args`, if given, is appended to the service's base command for this run
-        (and any auto-restarts of it) — e.g. UxPlay's `-r R` rotation flag."""
+        """`extra_args`, if given, is appended to the base command (and preserved
+        across auto-restarts) — e.g. UxPlay's `-r R` rotation flag."""
         if name not in self.services:
             logger.warning(f"Unknown service '{name}'; not starting")
             return
@@ -127,11 +124,8 @@ class ServiceManager:
         self._notify(name, True)
 
     def _restart_on_trigger(self, name, generation):
-        """Restart a still-running service because its own output matched
-        `restart_on_output` (e.g. UxPlay never clears its window on client disconnect,
-        so we force a fresh process/window instead). Runs on its own thread since it's
-        invoked from the pump thread reading the process's stdout — stop()'s
-        process.wait() would otherwise block against the very pipe it's draining."""
+        """Restart a service whose output matched `restart_on_output`. Runs on its own
+        thread since it's invoked from the pump thread reading the process's stdout."""
         with self._lock:
             if self._generation.get(name) != generation:
                 return

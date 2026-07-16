@@ -7,12 +7,8 @@ from .apps import AppManager
 from .services import ServiceManager
 from .utils import format_duration
 
-NONE_APP_OPTION = "No Startup App"  # sentinel for the default_app select's "don't auto-start anything" option
+NONE_APP_OPTION = "No Startup App"  # not "None" -- HA's MQTT integration treats that as a reserved sentinel
 NO_APP_RUNNING = "Nothing Running"  # "Current App" sensor's state when no app is running
-
-# "None" is deliberately avoided above: Home Assistant's MQTT integration treats a state
-# payload of the literal string "None" as a reserved sentinel meaning "reset to unknown",
-# not as a selectable value, so it would never actually display as selected.
 
 UPTIME_REFRESH_INTERVAL = 30  # seconds between uptime sensor/attribute refreshes
 
@@ -118,16 +114,12 @@ class Supervisor:
         return self.apps.apps.get(name, {}).get('name', name)
 
     def get_current_app_uptime(self):
-        """Formatted uptime of the currently running app (e.g. "2h 14m"), or None if
-        nothing's running. Referenced from entities.yaml's "attributes" on the Current
-        App sensor, not called directly."""
+        """Formatted uptime of the currently running app (e.g. "2h 14m"), or None."""
         uptime_seconds = self.apps.get_uptime_seconds()
         return format_duration(uptime_seconds) if uptime_seconds is not None else None
 
     def _notify_current_app(self):
-        """Push the currently running app to the "Current App" sensor and "App Switcher"
-        select. NO_APP_RUNNING is itself a valid app_switcher option, so it's used as-is
-        when nothing is running."""
+        """Push the currently running app to the "Current App" sensor and "App Switcher" select."""
         if not self.ha_client:
             return
         self.ha_client.update_sensor("current_app", self.get_current_app_display_name())
@@ -135,10 +127,7 @@ class Supervisor:
         self._push_uptimes()
 
     def _uptime_loop(self):
-        """Keep the uptime-flavored sensors/attributes ticking for as long as the
-        supervisor runs — a single long-lived loop rather than one thread per app launch,
-        since it just reads whatever's current each tick (including after a crash/liveness
-        restart, which resets AppManager's start time without going through _notify_current_app)."""
+        """Keep uptime-flavored sensors/attributes ticking for as long as the supervisor runs."""
         while True:
             time.sleep(UPTIME_REFRESH_INTERVAL)
             self._push_uptimes()
@@ -168,17 +157,14 @@ class Supervisor:
         self._notify_current_app()
 
     def set_tv_input(self, value):
-        """Callback for the "TV Input" select. Selecting the Pi's configured name switches
-        to it; anything else (whatever the "hdmi" input's current label is) switches to
-        that — the label can change (e.g. to "Apple TV") but always maps to the same input."""
+        """Callback for the "TV Input" select. Anything but the Pi's name maps to hdmi."""
         if value == self.tv.inputs['rPi']['name']:
             self.tv.set_input_rpi()
         else:
             self.tv.set_input_hdmi()
 
     def _on_service_state_change(self, name, running):
-        """ServiceManager callback: keep a service's HA switch (unique_id == service
-        name, e.g. "uxplay") in sync whenever it starts/stops, including auto-restarts."""
+        """ServiceManager callback: keep a service's HA switch in sync."""
         if not self.ha_client:
             return
         self.ha_client.update_switch(name, "ON" if running else "OFF")
@@ -201,9 +187,8 @@ class Supervisor:
         return self.settings_store.get("uxplay_rotation", "Normal")
 
     def set_uxplay_rotation(self, value):
-        """Persist the selected orientation, and — if AirPlay is currently running —
-        restart it immediately so the new rotation actually takes effect (UxPlay only
-        applies it at launch, there's no live/in-stream way to change it)."""
+        """Persist the orientation, restarting AirPlay now if it's running (UxPlay
+        only applies rotation at launch)."""
         if value not in UXPLAY_ROTATION_OPTIONS:
             logging.warning(f"Ignoring invalid uxplay rotation selection: {value}")
             return
@@ -219,8 +204,7 @@ class Supervisor:
         return self.settings_store.get("uxplay_audio_mode", "Video & Audio")
 
     def set_uxplay_audio_mode(self, value):
-        """Same live-restart-if-running behavior as set_uxplay_rotation, and for the
-        same reason: UxPlay only applies -vs at launch."""
+        """Same restart-if-running behavior as set_uxplay_rotation."""
         if value not in UXPLAY_AUDIO_MODE_OPTIONS:
             logging.warning(f"Ignoring invalid uxplay audio mode selection: {value}")
             return
@@ -232,9 +216,8 @@ class Supervisor:
             self.start_uxplay()
 
     def start_autostart_services(self):
-        """Start every `autostart: true` service in services.yaml. UxPlay specifically
-        goes through start_uxplay() so it launches with the persisted rotation rather
-        than the bare command — extend this if another service needs similar treatment."""
+        """Start every `autostart: true` service. UxPlay goes through start_uxplay()
+        so it picks up the persisted rotation/audio mode."""
         for name in self.services.list_services():
             if not self.services.services.get(name, {}).get('autostart'):
                 continue

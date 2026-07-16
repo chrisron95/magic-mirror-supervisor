@@ -5,9 +5,8 @@ import yaml
 
 
 class ButtonHandler:
-    """Wraps a gpiozero Button with press-count (single/double/triple/...) and hold
-    disambiguation. `press_callbacks` maps press count -> callable; any count without an
-    entry is simply ignored. A hold always suppresses whatever press count it interrupts."""
+    """Wraps a gpiozero Button with press-count and hold disambiguation. `press_callbacks`
+    maps press count -> callable; an unlisted count is ignored. A hold suppresses the press it interrupts."""
 
     MULTI_PRESS_WINDOW = 0.35  # seconds to wait for another press before dispatching
 
@@ -68,8 +67,7 @@ class ButtonHandler:
 
 
 def _resolve(context, dotted_path):
-    """Resolve a dotted path like "tv.toggle_power" against `context` (an object exposing
-    `tv`/`supervisor`/`utils`), the same way entities.yaml callbacks are resolved."""
+    """Resolve a dotted path like "tv.toggle_power" against `context`."""
     obj = context
     for part in dotted_path.split('.'):
         obj = getattr(obj, part)
@@ -94,9 +92,7 @@ def _build_action(context, spec):
 
 
 def load_buttons(path, context):
-    """Load config/buttons.yaml and construct a ButtonHandler per entry. Each entry's
-    `triggers` map (press count, or "hold") holds dotted paths (or lists of them)
-    resolved against `context`."""
+    """Load config/buttons.yaml and construct a ButtonHandler per entry."""
     with open(path, 'r') as f:
         config = yaml.safe_load(f) or {}
 

@@ -123,8 +123,7 @@ def main():
     utils.buttons = buttons
     logger.info(f"Buttons initialized ({len(buttons)})")
 
-    # Start any autostart: true services (e.g. UxPlay) — independent of the default app,
-    # and not gated on network like it is, since these don't need the MQTT broker to run.
+    # Start any autostart: true services (e.g. UxPlay) -- not gated on network
     supervisor.start_autostart_services()
     logger.info("Autostart services started")
 

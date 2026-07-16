@@ -22,9 +22,7 @@ class HomeAssistantClient:
         # unique_id -> {'to_canonical': {display: canonical}, 'to_display': {canonical: display}},
         # only populated for selects using the "{{apps_all}}" options shorthand
         self._select_maps = {}
-        # unique_id -> {attribute_name: dotted_path}, from each sensor's entities.yaml
-        # `attributes:` — kept around so refresh_sensor_attributes() can re-resolve them later
-        self._sensor_attribute_specs = {}
+        self._sensor_attribute_specs = {}  # unique_id -> {attribute_name: dotted_path}, from entities.yaml
 
         # Connect asynchronously so a down/absent network never blocks or raises here;
         # the network loop thread keeps retrying with backoff until the broker is reachable.
@@ -89,9 +87,8 @@ class HomeAssistantClient:
         return getattr(obj, parts[-1])
 
     def _resolve_attributes(self, attribute_specs):
-        """Resolve entities.yaml's `attributes: {name: dotted.path}` into a plain dict of
-        current values, e.g. {"uptime": "2h 14m"}. A path that fails to resolve, or whose
-        value is None, is simply omitted rather than surfacing as a broken attribute in HA."""
+        """Resolve entities.yaml's `attributes: {name: dotted.path}` into a plain dict,
+        e.g. {"uptime": "2h 14m"}. A path that fails or resolves to None is omitted."""
         resolved = {}
         for name, dotted_path in attribute_specs.items():
             try:
@@ -104,8 +101,7 @@ class HomeAssistantClient:
         return resolved
 
     def refresh_sensor_attributes(self):
-        """Re-resolve and push every sensor's declared `attributes` (see entities.yaml) —
-        called periodically by Supervisor for attributes that change over time, like uptime."""
+        """Re-resolve and push every sensor's declared `attributes` (see entities.yaml)."""
         for unique_id, attribute_specs in self._sensor_attribute_specs.items():
             self.update_sensor_attributes(unique_id, self._resolve_attributes(attribute_specs))
 
@@ -473,8 +469,7 @@ class HomeAssistantClient:
             logger.warning(f"Sensor with unique_id {unique_id} not found.")
 
     def update_sensor_attributes(self, unique_id, attributes):
-        """Publish extra state attributes for a sensor (e.g. "uptime" on "current_app"),
-        shown in HA alongside its normal state."""
+        """Publish extra state attributes for a sensor, shown alongside its normal state."""
         sensor = getattr(self, f"{unique_id}_entity", None)
         if sensor:
             sensor.set_attributes(attributes)
@@ -489,10 +484,8 @@ class HomeAssistantClient:
             logger.warning(f"Select with unique_id {unique_id} not found.")
 
     def update_select_options(self, unique_id, options):
-        """Re-publish a select's available *options* (not just its current value) — e.g.
-        the "TV Input" select swapping its side-port label for a newly detected device's
-        name. Mutates the underlying entity model directly and re-writes discovery config,
-        since the library doesn't expose a dedicated method for changing options post-setup."""
+        """Re-publish a select's available *options* (not just its current value) — the
+        library has no dedicated method for this, so mutate the entity model directly."""
         select_entity = getattr(self, f"{unique_id}_entity", None)
         if not select_entity:
             logger.warning(f"Select with unique_id {unique_id} not found.")

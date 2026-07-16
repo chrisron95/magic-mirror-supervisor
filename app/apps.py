@@ -81,8 +81,7 @@ class AppManager:
 
     def get_uptime_seconds(self):
         """Seconds since the current process instance was launched, or None if nothing's
-        running. Resets on any relaunch, including an automatic crash/liveness restart —
-        this tracks the running instance, not how long an app has been "selected"."""
+        running. Resets on any relaunch, including a crash/liveness restart."""
         if self._start_time is None:
             return None
         return time.monotonic() - self._start_time

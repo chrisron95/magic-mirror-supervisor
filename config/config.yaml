@@ -17,11 +17,9 @@ log_level: "INFO"
 # Must match an app key from apps.yaml. Leave unset/blank (or "No Startup App") to disable auto-start entirely.
 default_app: "homeassistant_mirror_dashboard"
 
-# Switchable TV inputs, by their CEC physical address (run `echo 'scan' | cec-client -s -d 1`
-# to find these for your own TV/wiring). "rPi" and "hdmi" are the fixed keys the code looks
-# up; "name" is what shows up in Home Assistant. The "hdmi" input's name is only a fallback —
-# the "TV Input" select swaps in whatever CEC-aware device (e.g. an Apple TV) is actually
-# detected there, if any.
+# Switchable TV inputs by CEC physical address (run `echo 'scan' | cec-client -s -d 1` to
+# find yours). "hdmi"'s name is just a fallback -- the TV Input select swaps in a
+# detected device's real name (e.g. "Apple TV") when there is one.
 tv_inputs:
   rPi:
     name: "Raspberry Pi"

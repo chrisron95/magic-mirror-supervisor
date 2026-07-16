@@ -5,26 +5,14 @@ services:
     environment:
       DISPLAY: ":0.0"
       XAUTHORITY: "{{user_home}}/.Xauthority"
-    # stdbuf -oL forces line-buffered stdout even though it's piped (not a terminal) —
-    # without it, uxplay's own output sits in its libc buffer and only appears all at
-    # once when the process exits, making the live log look like nothing happens until
-    # then.
+    # stdbuf -oL: forces line-buffered stdout so output streams live instead of only on exit.
     command: "stdbuf -oL -eL uxplay -n MagicMirror -nh -fs -avdec -nofreeze -nohold"
     restart: true
     autostart: true
-    # UxPlay never clears its window on its own when a client disconnects (confirmed via
-    # live logs — nothing happens between "Connection closed" and us killing it), so we
-    # force a fresh process/window ourselves the moment this line appears.
+    # UxPlay never clears its window on client disconnect, so restart it ourselves.
     restart_on_output: "raop_rtp_mirror->running is no longer true"
 
-# Unlike apps.yaml, any number of these can run at once, alongside whatever app is
-# currently showing — they're independent background services (matching how they ran as
-# separate systemd units before), not something you switch between. Each supports
-# `working_directory`/`environment`/`command`/`restart` the same as a directly-defined
-# apps.yaml entry (no templates, no `setup`/`background`/`liveness_check`), plus:
-#   - `autostart: true` — start this service when the supervisor boots, instead of
-#     waiting for it to be toggled on (e.g. via a switch in entities.yaml).
-# "{{user_home}}", "{{uid}}", and "{{secrets.<key>}}" are available here the same as in
-# apps.yaml. Wire a service up to a switch in entities.yaml via dedicated Supervisor
-# methods (see start_uxplay/stop_uxplay/is_uxplay_running in app/supervisor.py) — add a
-# matching trio of methods there for any additional service you add here.
+# Unlike apps.yaml, any number of these can run at once alongside whatever app is
+# showing. Same fields as a directly-defined apps.yaml entry, plus `autostart: true`.
+# Wire a service to a switch in entities.yaml via a start/stop/is_running trio on
+# Supervisor (see start_uxplay/stop_uxplay/is_uxplay_running).

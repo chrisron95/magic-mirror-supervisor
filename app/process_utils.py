@@ -25,12 +25,9 @@ def rotate_log_if_large(log_path, max_bytes):
 
 
 def spawn_logged(command, cwd, env, log_path, max_log_bytes, stream_logger=None, stream_prefix="", line_callback=None):
-    """Launch `command` in its own process group (so the whole subtree can be killed
-    together later), with stdout/stderr appended to a size-capped, rotated log file.
-
-    If `stream_logger` is given, output is also re-emitted live via that logger (prefixed
-    with `stream_prefix`), so it lands in journalctl too, not just the log file.
-    If `line_callback` is given, it's called with each raw output line as it arrives."""
+    """Launch `command` in its own process group, with stdout/stderr appended to a
+    size-capped, rotated log file. `stream_logger` also re-emits output live via that
+    logger; `line_callback` is called with each raw line as it arrives."""
     rotate_log_if_large(log_path, max_log_bytes)
     log_file = open(log_path, "a")
 
