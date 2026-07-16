@@ -153,6 +153,7 @@ switches:
     on_callback: "supervisor.start_uxplay"
     off_callback: "supervisor.stop_uxplay"
     state: "supervisor.is_uxplay_running"
+    entity_category: "config"
     icon: "mdi:cast-variant"
 
 selects:
