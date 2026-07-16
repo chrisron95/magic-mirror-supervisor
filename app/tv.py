@@ -270,7 +270,9 @@ class TV:
         """Push the currently set input source to Home Assistant."""
         if self.ha_client:
             self.ha_client.update_sensor("tv_current_input", self.get_current_input())
-            self.ha_client.update_select("tv_input", self.get_tv_input_selection())
+            selection = self.get_tv_input_selection()
+            if selection is not None:
+                self.ha_client.update_select("tv_input", selection)
         return self.internal_input
 
     def get_current_input(self):
@@ -284,9 +286,15 @@ class TV:
 
     def get_tv_input_selection(self):
         """Current value for the "TV Input" select, in its two-option scheme (the Pi's
-        configured name, or whatever the "hdmi" input's current label is) — deliberately
-        not power-aware like get_current_input(), since "Off" isn't one of its options and
-        the select is answering "which input is selected", not "is anything showing"."""
+        configured name, or whatever the "hdmi" input's current label is), or None while
+        the real input isn't known yet (startup, before either background thread has
+        settled) — update_input() skips pushing in that case rather than asserting a
+        possibly-wrong value, the same way get_current_input() reports "Unknown" until
+        settled. Deliberately not power-aware like get_current_input(), since "Off" isn't
+        one of this select's options and it's answering "which input is selected", not
+        "is anything showing"."""
+        if self.internal_input == "Unknown":
+            return None
         if self.internal_input == 'rPi':
             return self.inputs['rPi']['name']
         return self._hdmi_label

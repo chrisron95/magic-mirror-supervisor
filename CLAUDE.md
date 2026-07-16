@@ -105,9 +105,14 @@ callbacks, not driven from the main thread.
   `HomeAssistantClient.update_select_options`. `get_tv_input_selection()` (called from
   `update_input()`, alongside the "TV Current Input" sensor push) reports the select's
   *current* value in that same two-option scheme — deliberately not power-aware like
-  `get_current_input()`, since "Off" isn't a valid option for it. A non-CEC device (most
-  laptops) is invisible to a CEC scan entirely — there's no way to detect or name it, so
-  the fallback label is the best available for that case.
+  `get_current_input()`, since "Off" isn't a valid option for it. It returns `None` (and
+  `update_input()` then skips pushing) while `internal_input` is still `"Unknown"`, i.e.
+  before either background init thread has settled — without this, the select would
+  briefly assert a default/fallback value as if it were real, since `power_thread` and
+  `input_thread` race independently and `power_thread`'s own `update_input()` call
+  (inside `check_power_status()`) can easily win. A non-CEC device (most laptops) is
+  invisible to a CEC scan entirely — there's no way to detect or name it, so the
+  fallback label is the best available for that case.
 
 - **`app/apps.py`** (`AppManager`) — owns the currently-running app's process group. `start()` always
   stops whatever's running first (only one app runs at a time). Each launched app gets a monotonically
