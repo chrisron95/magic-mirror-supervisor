@@ -294,10 +294,11 @@ class TV:
         return self.internal_input
 
     def get_current_input(self):
-        """Last-known input, or "Off" while the TV is off."""
+        """Current input's display name (same as the "TV Input" select), or "Off"/"Unknown"."""
         if not self.is_on:
             return "Off"
-        return self.internal_input
+        selection = self.get_tv_input_selection()
+        return selection if selection is not None else "Unknown"
 
     def get_tv_input_selection(self):
         """Current value for the "TV Input" select, or None if not known yet."""
