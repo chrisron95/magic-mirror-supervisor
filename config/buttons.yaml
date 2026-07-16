@@ -4,7 +4,7 @@ buttons:
     hold_time: 1
     triggers:
       1: "tv.toggle_power"
-      hold: ["tv.standby", "utils.shutdown"]
+      hold: "tv.rotate_input"
 
   - name: "Button 2"
     pin: 24
@@ -18,7 +18,7 @@ buttons:
     hold_time: 1
     triggers:
       1: "supervisor.stop_all_apps"
-      hold: "tv.rotate_input"
+      hold: ["tv.standby", "utils.shutdown"]
 
 # Each button is a GPIO pin + a `triggers` map keyed by press count or "hold". A count
 # with no entry is ignored. A trigger's value is a dotted path (or list of them, run in
