@@ -43,11 +43,14 @@ class TV:
         the TV in response to our own commands."""
         while True:
             time.sleep(self.POLL_INTERVAL)
+            # Refresh _hdmi_label first: check_power_status() (and get_active_source()
+            # below) both end up calling update_input(), which reads _hdmi_label to report
+            # the "TV Input" select's current value — so it needs to already be current.
+            self.refresh_tv_input_options()
             self.check_power_status()
             if self.is_on:
                 self.get_active_source()
                 self.update_input()
-            self.refresh_tv_input_options()
 
     def initialize_power_status(self):
         """Background thread to check initial TV power status."""
@@ -56,6 +59,8 @@ class TV:
 
     def initialize_input(self):
         """Background thread to check initial TV input."""
+        self.refresh_tv_input_options()  # see _poll_loop's comment on ordering
+
         detected_input = self.get_active_source()
 
         if detected_input == "Unknown":
@@ -65,8 +70,6 @@ class TV:
             logging.info(f"TV input detected on startup: {detected_input}")
             self.internal_input = detected_input  # Save valid input
             self.update_input()  # Update Home Assistant with the detected input
-
-        self.refresh_tv_input_options()
 
     def _run_cec_command(self, cec_command, timeout=None):
         """Run a cec-client command, returning its stdout (empty string on failure/timeout).
@@ -191,46 +194,66 @@ class TV:
         output = self._run_cec_command("scan")
 
         match = re.search(r"currently active source:\s*(.+)", output)
+        if not match:
+            return "Unknown"
 
-        if match:
-            source_info = match.group(1).strip()
+        source_info = match.group(1).strip()
+        if "unknown (-1)" in source_info or "TV" in source_info:
+            # "TV (0)" covers both the TV's own tuner genuinely being active, and a
+            # non-CEC source being selected (the TV can't tell CEC apart from those, so it
+            # just reports itself) — either way there's no better answer than the last
+            # known input.
+            logging.warning(f"TV reports 'unknown (-1)', keeping last known input: {self.internal_input}")
+            return self.internal_input
 
-            if "unknown (-1)" in source_info or "TV" in source_info:
-                logging.warning(f"TV reports 'unknown (-1)', keeping last known input: {self.internal_input}")
-                return self.internal_input  # Keep the last known input
+        number_match = re.search(r"\((\d+)\)", source_info)
+        if not number_match:
+            return "Unknown"
 
-            match_device = re.search(r"device #(\d+):\s*([^\n]+)", output)
-            if match_device:
-                device_id = match_device.group(1)
-                device_name = match_device.group(2).strip()
-                detected_input = f"HDMI {device_id} ({device_name})"
-                self.internal_input = detected_input  # Update internal input
-                logging.info(f"TV detected real input: {detected_input}")
-                return detected_input
-
-        return "Unknown"
+        device = self._find_device_by_number(output, number_match.group(1))
+        device_name = device.get("osd_string", "Unknown") if device else "Unknown"
+        detected_input = f"HDMI {number_match.group(1)} ({device_name})"
+        self.internal_input = detected_input  # Update internal input
+        logging.info(f"TV detected real input: {detected_input}")
+        return detected_input
 
     def get_hdmi_device_name(self):
         """Display name of whatever CEC-aware device is on the "hdmi" input's physical
         address (e.g. "Apple TV"), or that input's configured default name if nothing
         CEC-capable is detected there — most non-CEC devices (e.g. a laptop) are simply
         invisible to a CEC scan, not just unnamed."""
-        address = self.inputs['hdmi']['address']
         output = self._run_cec_command("scan")
-        return self._find_device_osd_by_address(output, address) or self.inputs['hdmi']['name']
+        device = self._find_device_by_address(output, self.inputs['hdmi']['address'])
+        return (device and device.get('osd_string')) or self.inputs['hdmi']['name']
 
     @staticmethod
-    def _find_device_osd_by_address(scan_output, target_address):
-        """Parse `cec-client scan` output and return the "osd string" of whichever device
-        block has the given physical `address`, or None if no device is at that address."""
-        current_address = None
+    def _parse_scan_devices(scan_output):
+        """Parse `cec-client scan` output into a list of dicts (one per "device #N: ..."
+        block), each with whichever of "number"/"address"/"osd_string" fields it had."""
+        devices = []
+        current = None
         for line in scan_output.splitlines():
             line = line.strip()
+            header = re.match(r"device #(\d+):", line)
+            if header:
+                current = {"number": header.group(1)}
+                devices.append(current)
+                continue
+            if current is None:
+                continue
             if line.startswith("address:"):
-                current_address = line.split(":", 1)[1].strip()
-            elif line.startswith("osd string:") and current_address == target_address:
-                return line.split(":", 1)[1].strip()
-        return None
+                current["address"] = line.split(":", 1)[1].strip()
+            elif line.startswith("osd string:"):
+                current["osd_string"] = line.split(":", 1)[1].strip()
+        return devices
+
+    @classmethod
+    def _find_device_by_number(cls, scan_output, number):
+        return next((d for d in cls._parse_scan_devices(scan_output) if d.get("number") == number), None)
+
+    @classmethod
+    def _find_device_by_address(cls, scan_output, address):
+        return next((d for d in cls._parse_scan_devices(scan_output) if d.get("address") == address), None)
 
     def refresh_tv_input_options(self):
         """Keep the "TV Input" select's options in sync with whatever's actually detected
@@ -247,6 +270,7 @@ class TV:
         """Push the currently set input source to Home Assistant."""
         if self.ha_client:
             self.ha_client.update_sensor("tv_current_input", self.get_current_input())
+            self.ha_client.update_select("tv_input", self.get_tv_input_selection())
         return self.internal_input
 
     def get_current_input(self):
@@ -257,6 +281,15 @@ class TV:
         if not self.is_on:
             return "Off"
         return self.internal_input
+
+    def get_tv_input_selection(self):
+        """Current value for the "TV Input" select, in its two-option scheme (the Pi's
+        configured name, or whatever the "hdmi" input's current label is) — deliberately
+        not power-aware like get_current_input(), since "Off" isn't one of its options and
+        the select is answering "which input is selected", not "is anything showing"."""
+        if self.internal_input == 'rPi':
+            return self.inputs['rPi']['name']
+        return self._hdmi_label
 
     def set_input(self, desired_source):
         """Change the TV input to a specified source (a key in self.inputs) and confirm

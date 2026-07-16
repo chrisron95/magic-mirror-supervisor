@@ -93,12 +93,21 @@ callbacks, not driven from the main thread.
   re-wiring for a different TV is a `config.yaml` edit, not a code change. `set_input()` only ever
   targets these two physical addresses; a CEC-aware device plugged into "hdmi" (e.g. an Apple TV)
   doesn't get its own dedicated command — it's just whatever the TV routes to that address.
-  `refresh_tv_input_options` (called at startup and every poll) re-scans, extracts whatever device's
-  `osd string` is at "hdmi"'s address via `_find_device_osd_by_address`, and if that name changed,
-  pushes new options for the "TV Input" select via `HomeAssistantClient.update_select_options` — this
-  is how the select shows "Apple TV" instead of the generic fallback name once one's detected. A
-  non-CEC device (most laptops) is invisible to a CEC scan entirely — there's no way to detect or
-  name it, so the fallback label is the best available for that case.
+  `_parse_scan_devices` parses a whole `cec-client scan` into a list of per-device dicts
+  (`number`/`address`/`osd_string`), used both by `get_active_source` (correlates
+  "currently active source: ... (N)" against `device #N`'s own `osd_string` — a plain
+  first-match regex would always find `device #0: TV` instead, since that's always listed
+  first regardless of what's actually active) and by `get_hdmi_device_name` (looks up
+  "hdmi"'s configured physical `address` instead). `refresh_tv_input_options` (called at
+  startup and every poll, *before* anything that calls `update_input()` in that same
+  pass — see the ordering comment in `_poll_loop`) re-scans and, if the "hdmi" input's
+  detected device name changed, pushes new options for the "TV Input" select via
+  `HomeAssistantClient.update_select_options`. `get_tv_input_selection()` (called from
+  `update_input()`, alongside the "TV Current Input" sensor push) reports the select's
+  *current* value in that same two-option scheme — deliberately not power-aware like
+  `get_current_input()`, since "Off" isn't a valid option for it. A non-CEC device (most
+  laptops) is invisible to a CEC scan entirely — there's no way to detect or name it, so
+  the fallback label is the best available for that case.
 
 - **`app/apps.py`** (`AppManager`) — owns the currently-running app's process group. `start()` always
   stops whatever's running first (only one app runs at a time). Each launched app gets a monotonically
