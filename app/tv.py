@@ -73,13 +73,16 @@ class TV:
             logging.warning("Unexpected power status response, assuming TV is OFF.")
             power_status = False
 
+        # Store the power status before pushing anything — get_current_input() (called via
+        # update_input() below) reports "Off" based on this, not a fresh CEC query.
+        self.is_on = power_status
+
         # Update the Home Assistant switch with the power status
         if self.ha_client:
             self.ha_client.update_switch("tv_power_switch", "ON" if power_status else "OFF")
             self.ha_client.update_binary_sensor("tv_power", power_status)
 
-        # Store the power status in the instance variable
-        self.is_on = power_status
+        self.update_input()  # keep "TV Current Input" in sync with power state too
 
         return power_status
 
@@ -183,13 +186,17 @@ class TV:
 
     def update_input(self):
         """Push the currently set input source to Home Assistant."""
-        # self.get_active_source()  # Update internal input
         if self.ha_client:
-            self.ha_client.update_sensor("tv_current_input", self.internal_input)
+            self.ha_client.update_sensor("tv_current_input", self.get_current_input())
         return self.internal_input
 
     def get_current_input(self):
-        """Return the last-known input without pushing an update."""
+        """Return the last-known input without pushing an update. Reports "Off" while the
+        TV is off — an HDMI input reading is meaningless once the TV itself is powered
+        down, and self.internal_input is deliberately left untouched so the actual last
+        input is still there to report once the TV powers back on."""
+        if not self.is_on:
+            return "Off"
         return self.internal_input
 
     def set_input(self, desired_source):
