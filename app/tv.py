@@ -1,8 +1,11 @@
+import os
 import subprocess
 import re
 import time
 import threading
 import logging
+
+from .process_utils import terminate_process_group
 
 class TV:
     CEC_TIMEOUT = 10  # seconds; prevents a hung cec-client from blocking button/MQTT threads indefinitely
@@ -43,13 +46,16 @@ class TV:
         the TV in response to our own commands."""
         while True:
             time.sleep(self.POLL_INTERVAL)
-            # Refresh _hdmi_label first: check_power_status() (and get_active_source()
-            # below) both end up calling update_input(), which reads _hdmi_label to report
-            # the "TV Input" select's current value — so it needs to already be current.
-            self.refresh_tv_input_options()
             self.check_power_status()
             if self.is_on:
-                self.get_active_source()
+                # One shared scan for both the active-source lookup and the "hdmi" input's
+                # device-name lookup, instead of each doing its own cec-client invocation —
+                # halves CEC bus traffic per cycle. _apply_hdmi_label runs first since
+                # update_input() (called via _parse_active_source's side effects, below)
+                # reads _hdmi_label for the "TV Input" select's current value.
+                output = self._run_cec_command("scan")
+                self._apply_hdmi_label(self._parse_hdmi_device_name(output))
+                self._parse_active_source(output)
                 self.update_input()
 
     def initialize_power_status(self):
@@ -59,9 +65,10 @@ class TV:
 
     def initialize_input(self):
         """Background thread to check initial TV input."""
-        self.refresh_tv_input_options()  # see _poll_loop's comment on ordering
+        output = self._run_cec_command("scan")  # shared by both lookups below, see _poll_loop
+        self._apply_hdmi_label(self._parse_hdmi_device_name(output))
 
-        detected_input = self.get_active_source()
+        detected_input = self._parse_active_source(output)
 
         if detected_input == "Unknown":
             logging.warning("TV input is 'unknown' on startup, switching to rPi")
@@ -73,19 +80,23 @@ class TV:
 
     def _run_cec_command(self, cec_command, timeout=None):
         """Run a cec-client command, returning its stdout (empty string on failure/timeout).
-        Serialized via self.lock — concurrent invocations stall each other out."""
+        Serialized via self.lock — concurrent invocations stall each other out. Runs in its
+        own process group and is fully killed (not just the shell wrapper) on timeout —
+        without that, a hung cec-client can outlive the timeout and keep holding the CEC
+        adapter open, making every subsequent command fail too."""
         timeout = timeout or self.CEC_TIMEOUT
         with self.lock:
+            process = subprocess.Popen(
+                f"echo '{cec_command}' | cec-client -s -d 1",
+                shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                preexec_fn=os.setsid
+            )
             try:
-                return subprocess.run(
-                    f"echo '{cec_command}' | cec-client -s -d 1",
-                    shell=True, capture_output=True, text=True, timeout=timeout
-                ).stdout
+                stdout, _ = process.communicate(timeout=timeout)
+                return stdout
             except subprocess.TimeoutExpired:
                 logging.error(f"cec-client command '{cec_command}' timed out after {timeout}s")
-                return ""
-            except subprocess.CalledProcessError as e:
-                logging.error(f"cec-client command '{cec_command}' failed: {e}")
+                terminate_process_group(process)
                 return ""
 
     def check_power_status(self):
@@ -190,9 +201,13 @@ class TV:
             self.lock.release()
 
     def get_active_source(self):
-        """Retrieve and track the currently active HDMI input source."""
-        output = self._run_cec_command("scan")
+        """Retrieve and track the currently active HDMI input source (a fresh scan)."""
+        return self._parse_active_source(self._run_cec_command("scan"))
 
+    def _parse_active_source(self, output):
+        """Same as get_active_source(), but against already-fetched scan `output` — lets
+        callers that also need get_hdmi_device_name() (e.g. the poll loop) share a single
+        scan instead of each doing their own cec-client invocation."""
         match = re.search(r"currently active source:\s*(.+)", output)
         if not match:
             return "Unknown"
@@ -219,10 +234,14 @@ class TV:
 
     def get_hdmi_device_name(self):
         """Display name of whatever CEC-aware device is on the "hdmi" input's physical
-        address (e.g. "Apple TV"), or that input's configured default name if nothing
-        CEC-capable is detected there — most non-CEC devices (e.g. a laptop) are simply
-        invisible to a CEC scan, not just unnamed."""
-        output = self._run_cec_command("scan")
+        address (a fresh scan) — see _parse_hdmi_device_name for details."""
+        return self._parse_hdmi_device_name(self._run_cec_command("scan"))
+
+    def _parse_hdmi_device_name(self, output):
+        """Same as get_hdmi_device_name(), but against already-fetched scan `output`.
+        Falls back to "hdmi"'s configured default name if nothing CEC-capable is detected
+        there — most non-CEC devices (e.g. a laptop) are simply invisible to a CEC scan,
+        not just unnamed."""
         device = self._find_device_by_address(output, self.inputs['hdmi']['address'])
         return (device and device.get('osd_string')) or self.inputs['hdmi']['name']
 
@@ -255,11 +274,10 @@ class TV:
     def _find_device_by_address(cls, scan_output, address):
         return next((d for d in cls._parse_scan_devices(scan_output) if d.get("address") == address), None)
 
-    def refresh_tv_input_options(self):
-        """Keep the "TV Input" select's options in sync with whatever's actually detected
-        on the "hdmi" port — swaps in a real device name (e.g. "Apple TV") when one's
-        CEC-aware, falls back to that input's configured default label otherwise."""
-        label = self.get_hdmi_device_name()
+    def _apply_hdmi_label(self, label):
+        """Swap in a real device name (e.g. "Apple TV") for the "TV Input" select's
+        second option when one's CEC-aware, falling back to that input's configured
+        default label otherwise — only pushes new options if the label actually changed."""
         if label == self._hdmi_label:
             return
         self._hdmi_label = label

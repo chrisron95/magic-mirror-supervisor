@@ -80,7 +80,12 @@ callbacks, not driven from the main thread.
 - **`app/tv.py`** (`TV`) — HDMI-CEC control via shelling out to `cec-client`. All CEC access is
   serialized through a single `RLock` (concurrent `cec-client` invocations stomp on each other); power-on
   and standby acquire it non-blocking and bail out with a log if a command is already in flight, rather
-  than queuing. Power/input state is tracked in-memory (`is_on`, `internal_input`) and pushed to HA
+  than queuing. `_run_cec_command` spawns `cec-client` in its own process group (`preexec_fn=os.setsid`)
+  and kills the whole group (via `process_utils.terminate_process_group`) on timeout — plain
+  `subprocess.run(..., timeout=)` under `shell=True` only kills the shell, not `cec-client` itself,
+  which can then linger holding the adapter open and make every subsequent command fail with
+  `ioctl cec_s_mode failed - errno=16` (EBUSY) until something finally kills it manually. Power/input
+  state is tracked in-memory (`is_on`, `internal_input`) and pushed to HA
   proactively on change rather than HA polling for it. `get_current_input()` reports "Off" whenever
   `is_on` is false instead of a stale HDMI reading — `internal_input` itself is left untouched so the
   real last input is still there once the TV powers back on. A `_poll_loop` background thread (started
@@ -94,15 +99,19 @@ callbacks, not driven from the main thread.
   targets these two physical addresses; a CEC-aware device plugged into "hdmi" (e.g. an Apple TV)
   doesn't get its own dedicated command — it's just whatever the TV routes to that address.
   `_parse_scan_devices` parses a whole `cec-client scan` into a list of per-device dicts
-  (`number`/`address`/`osd_string`), used both by `get_active_source` (correlates
+  (`number`/`address`/`osd_string`), used both by `_parse_active_source` (correlates
   "currently active source: ... (N)" against `device #N`'s own `osd_string` — a plain
   first-match regex would always find `device #0: TV` instead, since that's always listed
-  first regardless of what's actually active) and by `get_hdmi_device_name` (looks up
-  "hdmi"'s configured physical `address` instead). `refresh_tv_input_options` (called at
-  startup and every poll, *before* anything that calls `update_input()` in that same
-  pass — see the ordering comment in `_poll_loop`) re-scans and, if the "hdmi" input's
-  detected device name changed, pushes new options for the "TV Input" select via
-  `HomeAssistantClient.update_select_options`. `get_tv_input_selection()` (called from
+  first regardless of what's actually active) and by `_parse_hdmi_device_name` (looks up
+  "hdmi"'s configured physical `address` instead). `get_active_source`/`get_hdmi_device_name`
+  are thin wrappers that fetch a fresh scan and hand it to those; `_poll_loop` and
+  `initialize_input` instead fetch *one* scan and feed it to both, since each cec-client
+  invocation is a full adapter connect/disconnect and doubling that up every poll cycle
+  meaningfully adds to CEC bus load. `_apply_hdmi_label` (called with that scan's result,
+  *before* anything that calls `update_input()` in that same pass — see the ordering
+  comment in `_poll_loop`) pushes new options for the "TV Input" select via
+  `HomeAssistantClient.update_select_options`, only if the detected name actually changed.
+  `get_tv_input_selection()` (called from
   `update_input()`, alongside the "TV Current Input" sensor push) reports the select's
   *current* value in that same two-option scheme — deliberately not power-aware like
   `get_current_input()`, since "Off" isn't a valid option for it. It returns `None` (and

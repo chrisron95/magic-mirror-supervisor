@@ -189,9 +189,9 @@ selects:
 
   - name: "TV Input"
     unique_id: "tv_input"
-    # Just a sane starting default — TV.refresh_tv_input_options() corrects this shortly
-    # after boot (and whenever it changes) to match config.yaml's tv_inputs, swapping in a
-    # detected CEC device's real name (e.g. "Apple TV") for the second option when present.
+    # Just a sane starting default — TV's startup scan and background poll correct this
+    # shortly after boot (and whenever it changes) to match config.yaml's tv_inputs,
+    # swapping in a detected CEC device's real name (e.g. "Apple TV") for the second option.
     options: ["Raspberry Pi", "HDMI 3"]
     default_option: "Raspberry Pi"
     callback: "set_tv_input"
