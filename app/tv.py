@@ -96,7 +96,10 @@ class TV:
                 return stdout
             except subprocess.TimeoutExpired:
                 logging.error(f"cec-client command '{cec_command}' timed out after {timeout}s")
-                terminate_process_group(process)
+                # Short grace period: it's already blown its budget, no need to wait the
+                # default 5s for a graceful SIGTERM before escalating — every extra second
+                # here is extra time self.lock stays held, blocking any other TV command.
+                terminate_process_group(process, timeout=2)
                 return ""
 
     def check_power_status(self):
@@ -362,10 +365,13 @@ class TV:
     def wait_for_input_switch(self, desired_source, timeout=10, interval=2):
         """Poll the input status every `interval` seconds until `timeout` is reached."""
         logging.info(f"Waiting for TV to switch to {desired_source}...")
-        elapsed = 0
-        while elapsed < timeout:
+        start = time.monotonic()
+        while time.monotonic() - start < timeout:
             time.sleep(interval)
-            elapsed += interval
+            # get_active_source() can itself take up to CEC_TIMEOUT (plus kill-on-timeout
+            # grace) if the underlying scan hangs — track real wall-clock time, not a
+            # fixed per-iteration increment, or one slow/timed-out scan silently blows the
+            # whole budget several times over instead of bounding it.
             detected_input = self.get_active_source()
 
             if desired_source == "hdmi":
@@ -375,10 +381,10 @@ class TV:
                     return True
             elif self.internal_input == desired_source:
                 # No device to detect for rPi, so fall back to internal tracking
-                logging.info(f"TV successfully switched to {desired_source} after {elapsed} seconds.")
+                logging.info(f"TV successfully switched to {desired_source} after {time.monotonic() - start:.1f}s")
                 return True
 
-        logging.warning(f"TV input switch to {desired_source} timed out after {timeout} seconds. Keeping last attempted input: {desired_source}")
+        logging.warning(f"TV input switch to {desired_source} timed out after {timeout}s. Keeping last attempted input: {desired_source}")
         self.internal_input = desired_source  # Ensure the script doesn't get stuck
         return False
 

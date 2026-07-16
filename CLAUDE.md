@@ -84,7 +84,15 @@ callbacks, not driven from the main thread.
   and kills the whole group (via `process_utils.terminate_process_group`) on timeout — plain
   `subprocess.run(..., timeout=)` under `shell=True` only kills the shell, not `cec-client` itself,
   which can then linger holding the adapter open and make every subsequent command fail with
-  `ioctl cec_s_mode failed - errno=16` (EBUSY) until something finally kills it manually. Power/input
+  `ioctl cec_s_mode failed - errno=16` (EBUSY) until something finally kills it manually — note this
+  only prevents *future* orphans; an already-orphaned process from before this fix needs a manual
+  `pkill`/reboot, it won't clean itself up. The kill grace period on timeout is intentionally short
+  (`terminate_process_group(process, timeout=2)`, not the default 5s) since a timed-out command has
+  already blown its budget and every extra second here is `self.lock` staying held, blocking any other
+  TV command. `wait_for_input_switch`'s retry loop tracks real wall-clock time (`time.monotonic()`), not
+  a fixed per-iteration increment — the latter let one slow/timed-out `get_active_source()` call (up to
+  `CEC_TIMEOUT` + kill grace) silently blow the loop's nominal budget several times over, since
+  `elapsed += interval` didn't account for how long that call actually took. Power/input
   state is tracked in-memory (`is_on`, `internal_input`) and pushed to HA
   proactively on change rather than HA polling for it. `get_current_input()` reports "Off" whenever
   `is_on` is false instead of a stale HDMI reading — `internal_input` itself is left untouched so the
