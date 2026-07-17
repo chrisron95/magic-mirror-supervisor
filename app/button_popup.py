@@ -56,6 +56,7 @@ def main():
         for edge in (GtkLayerShell.Edge.TOP, GtkLayerShell.Edge.BOTTOM,
                      GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
             GtkLayerShell.set_anchor(win, edge, True)
+        GtkLayerShell.set_exclusive_zone(win, -1)  # cover other surfaces' reserved space too (e.g. a panel)
         win.get_style_context().add_class("fullscreen")
 
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

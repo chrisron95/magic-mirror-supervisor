@@ -170,6 +170,11 @@ class Supervisor:
 
     def _on_service_state_change(self, name, running):
         """ServiceManager callback: keep a service's HA switch in sync."""
+        if name == "mirror_mode":
+            if running:
+                self.apps.pause_liveness_check()
+            else:
+                self.apps.resume_liveness_check()
         if not self.ha_client:
             return
         self.ha_client.update_switch(name, "ON" if running else "OFF")

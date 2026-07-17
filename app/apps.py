@@ -28,6 +28,7 @@ class AppManager:
         self._main_process = None  # the tracked/monitored process
         self._generation = 0       # bumped by stop(); invalidates any in-flight restart-monitor
         self._start_time = None    # monotonic timestamp of the current process instance's launch
+        self._liveness_paused = False
 
     def _resolve_apps(self, raw_apps, user_home, secrets):
         """Merge each entry with its template (if it references one via `app:`), then
@@ -152,6 +153,14 @@ class AppManager:
         if main_process and liveness_check:
             threading.Thread(target=self._monitor_liveness, args=(name, generation, liveness_check), daemon=True).start()
 
+    def pause_liveness_check(self):
+        """Suspend freeze detection (e.g. while Mirror Mode intentionally blanks the
+        screen) so an unchanging screenshot isn't mistaken for a hung renderer."""
+        self._liveness_paused = True
+
+    def resume_liveness_check(self):
+        self._liveness_paused = False
+
     def _spawn(self, app_name, command, cwd, env, log_suffix):
         log_path = os.path.join(self.log_dir, f"{app_name}-{log_suffix}.log")
         return spawn_logged(command, cwd, env, log_path, self.MAX_LOG_BYTES)
@@ -194,6 +203,11 @@ class AppManager:
             with self._lock:
                 if generation != self._generation:
                     return
+
+            if self._liveness_paused:
+                last_hash = None
+                unchanged_count = 0
+                continue
 
             current_hash = self._capture_screenshot_hash(screenshot_path)
             if current_hash is None:
