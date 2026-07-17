@@ -105,6 +105,7 @@ Before getting started, please ensure the following are already set up:
   - Mask its systemd service, since it won't autostart on a bare auto-login labwc session: `systemctl --user mask mako.service`
   - Launch it yourself instead — add `mako &` to `~/.config/labwc/autostart` (make sure that file is executable: `chmod +x`)
   - In `~/.config/mako/config`, set `layer=overlay` (so notifications render above the fullscreen kiosk) and a `default-timeout` (so they auto-dismiss) — mako's own defaults do neither
+- **wtype**: Sends the F5 keypress for the "Refresh Kiosk" button (`Supervisor.refresh_kiosk`). Install with `sudo apt install wtype`.
 
 ---
 

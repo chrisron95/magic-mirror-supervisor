@@ -109,7 +109,7 @@ class Supervisor:
     def refresh_kiosk(self):
         """Refresh the screen."""
         self.notify("Refreshing Screen", "Screen refreshed")
-        os.system("xdotool key F5")
+        subprocess.run(["wtype", "-P", "F5", "-p", "F5"])
 
     def get_current_app_display_name(self):
         """Display name of the currently running app, for the "Current App" sensor."""
