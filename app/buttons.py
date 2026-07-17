@@ -8,7 +8,7 @@ class ButtonHandler:
     """Wraps a gpiozero Button with press-count and hold disambiguation. `press_callbacks`
     maps press count -> callable; an unlisted count is ignored. A hold suppresses the press it interrupts."""
 
-    MULTI_PRESS_WINDOW = 0.35  # seconds to wait for another press before dispatching
+    MULTI_PRESS_WINDOW = 0.5  # seconds to wait for another press before dispatching
 
     def __init__(self, name, pin, press_callbacks=None, hold_callback=None, hold_time=1):
         self.name = name
