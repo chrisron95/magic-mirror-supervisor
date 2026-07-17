@@ -4,6 +4,7 @@ buttons:
     hold_time: 1
     triggers:
       1: "tv.toggle_power"
+      2: "supervisor.toggle_mirror_mode"
       hold: "tv.rotate_input"
 
   - name: "Button 2"

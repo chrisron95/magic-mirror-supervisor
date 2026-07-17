@@ -197,6 +197,12 @@ class Supervisor:
     def stop_mirror_mode(self):
         self.services.stop("mirror_mode")
 
+    def toggle_mirror_mode(self):
+        if self.is_mirror_mode_running():
+            self.stop_mirror_mode()
+        else:
+            self.start_mirror_mode()
+
     def is_mirror_mode_running(self):
         return self.services.is_running("mirror_mode")
 
