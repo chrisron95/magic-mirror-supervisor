@@ -100,6 +100,11 @@ Before getting started, please ensure the following are already set up:
 - **grim** (optional): Only needed if an app in `apps.yaml` uses `liveness_check` (screenshot-based freeze detection). Install with `sudo apt install grim`.
 - **uxplay** (optional): Only needed for the built-in `uxplay` entry in `services.yaml` (AirPlay mirroring) — see [UxPlay](https://github.com/FDH2/UxPlay) for install instructions. Remove that entry (or replace it with your own service) if you don't need AirPlay.
 - **GTK/gtk-layer-shell**: Powers the on-screen touch-button popup (`app/button_popup.py`, used by `Supervisor.app_selector`). Install with `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-gtklayershell-0.1`.
+- **mako**: Wayland-native notification daemon backing `Supervisor.notify`. Setup:
+  - Install: `sudo apt install mako-notifier`
+  - Mask its systemd service, since it won't autostart on a bare auto-login labwc session: `systemctl --user mask mako.service`
+  - Launch it yourself instead — add `mako &` to `~/.config/labwc/autostart` (make sure that file is executable: `chmod +x`)
+  - In `~/.config/mako/config`, set `layer=overlay` (so notifications render above the fullscreen kiosk) and a `default-timeout` (so they auto-dismiss) — mako's own defaults do neither
 
 ---
 
