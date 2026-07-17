@@ -191,6 +191,15 @@ class Supervisor:
         """Persisted AirPlay screen orientation (a UXPLAY_ROTATION_OPTIONS key)."""
         return self.settings_store.get("uxplay_rotation", "Normal")
 
+    def start_mirror_mode(self):
+        self.services.start("mirror_mode")
+
+    def stop_mirror_mode(self):
+        self.services.stop("mirror_mode")
+
+    def is_mirror_mode_running(self):
+        return self.services.is_running("mirror_mode")
+
     def set_uxplay_rotation(self, value):
         """Persist the orientation, restarting AirPlay now if it's running (UxPlay
         only applies rotation at launch)."""

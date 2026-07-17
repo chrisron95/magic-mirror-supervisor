@@ -12,6 +12,12 @@ services:
     # UxPlay never clears its window on client disconnect, so restart it ourselves.
     restart_on_output: "raop_rtp_mirror->running is no longer true"
 
+  mirror_mode:
+    name: "Mirror Mode"
+    command: >-
+      echo '{"cancel_label": "Exit Mirror Mode", "fullscreen": true}' | python3 app/button_popup.py
+    restart: false
+
 # Unlike apps.yaml, any number of these can run at once alongside whatever app is
 # showing. Same fields as a directly-defined apps.yaml entry, plus `autostart: true`.
 # Wire a service to a switch in entities.yaml via a start/stop/is_running trio on

@@ -152,6 +152,13 @@ switches:
     entity_category: "config"
     icon: "mdi:cast-variant"
 
+  - name: "Mirror Mode"
+    unique_id: "mirror_mode"  # must match the service's key in config/services.yaml
+    on_callback: "supervisor.start_mirror_mode"
+    off_callback: "supervisor.stop_mirror_mode"
+    state: "supervisor.is_mirror_mode_running"
+    icon: "mdi:mirror"
+
 selects:
   - name: "Default Startup App"
     unique_id: "default_app"

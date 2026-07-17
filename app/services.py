@@ -118,8 +118,8 @@ class ServiceManager:
                                 stream_logger=logger, stream_prefix=name, line_callback=line_callback)
         self._running[name] = process
 
-        if service.get('restart', True):
-            threading.Thread(target=self._monitor, args=(name, generation), daemon=True).start()
+        restart = service.get('restart', True)
+        threading.Thread(target=self._monitor, args=(name, generation, restart), daemon=True).start()
 
         self._notify(name, True)
 
@@ -134,9 +134,11 @@ class ServiceManager:
         self.stop(name)
         self.start(name, extra_args=extra_args)
 
-    def _monitor(self, name, generation):
-        """Wait for the service's process to exit, and relaunch it if nothing else has
-        stopped/restarted it in the meantime (a stale `generation` means one has)."""
+    def _monitor(self, name, generation, restart):
+        """Wait for the service's process to exit and report it to `on_state_change`,
+        whether it crashed or exited on its own (e.g. a UI service closed by the user).
+        Only relaunches it if `restart` is set and nothing else has stopped/restarted it
+        in the meantime (a stale `generation` means one has)."""
         with self._lock:
             process = self._running.get(name)
         if process is None:
@@ -146,7 +148,16 @@ class ServiceManager:
         with self._lock:
             if self._generation.get(name) != generation:
                 return
-            logger.warning(f"Service '{name}' exited unexpectedly (code {process.returncode}); restarting in {self.RESTART_DELAY}s")
+            self._running.pop(name, None)
+            if restart:
+                logger.warning(f"Service '{name}' exited unexpectedly (code {process.returncode}); restarting in {self.RESTART_DELAY}s")
+            else:
+                logger.info(f"Service '{name}' exited (code {process.returncode})")
+
+        self._notify(name, False)
+
+        if not restart:
+            return
 
         time.sleep(self.RESTART_DELAY)
 
