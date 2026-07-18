@@ -4,6 +4,7 @@ import os
 import re
 import socket
 import subprocess
+import threading
 import time
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ def format_duration(seconds):
 
 
 VOLUME_SINK = "@DEFAULT_AUDIO_SINK@"  # PipeWire's alias for the system default output
+VOLUME_WATCH_DEBOUNCE = 0.3  # seconds to coalesce a burst of "change" events into one recheck
 
 
 class Utils:
@@ -42,6 +44,8 @@ class Utils:
         self.serial = None
         self.manufacturer = None
         self.model = None
+
+        threading.Thread(target=self._watch_volume, daemon=True).start()
 
         global ip_address
         ip_address = self.get_ip_address()
@@ -143,6 +147,36 @@ class Utils:
             return
         if self.ha_client:
             self.ha_client.update_number("volume", volume)
+
+    def _watch_volume(self):
+        """Push volume to HA when it changes outside of set_volume() -- e.g. from the
+        Pi's own system tray/keyboard -- since that's the only other place volume can
+        change. `pactl subscribe` emits a line per PipeWire event; a single slider drag
+        fires many of them, so debounce before re-reading and pushing the real value."""
+        try:
+            process = subprocess.Popen(
+                ["pactl", "subscribe"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
+            )
+        except OSError as e:
+            logger.warning(f"Volume watcher not started (pactl unavailable): {e}")
+            return
+
+        debounce_timer = None
+
+        def push_if_changed():
+            if self.ha_client:
+                volume = self.get_volume()
+                if volume is not None:
+                    self.ha_client.update_number("volume", volume)
+
+        for line in process.stdout:
+            if "on sink" not in line:
+                continue
+            if debounce_timer:
+                debounce_timer.cancel()
+            debounce_timer = threading.Timer(VOLUME_WATCH_DEBOUNCE, push_if_changed)
+            debounce_timer.daemon = True
+            debounce_timer.start()
 
     def get_pi_uptime(self):
         """Time since the Pi itself booted, for the "Pi Uptime" sensor."""
