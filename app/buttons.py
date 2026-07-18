@@ -10,11 +10,11 @@ class ButtonHandler:
 
     MULTI_PRESS_WINDOW = 0.5  # seconds to wait for another press before dispatching
 
-    def __init__(self, name, pin, press_callbacks=None, hold_callback=None, hold_time=1):
+    def __init__(self, name, pin, press_callbacks=None, hold_callback=None, hold_time=1, hold_repeat=False):
         self.name = name
         self.press_callbacks = press_callbacks or {}
         self.hold_callback = hold_callback
-        self.button = Button(pin, bounce_time=0.05, hold_time=hold_time)
+        self.button = Button(pin, bounce_time=0.05, hold_time=hold_time, hold_repeat=hold_repeat)
 
         self._lock = threading.Lock()
         self._press_count = 0
@@ -111,6 +111,7 @@ def load_buttons(path, context):
             entry['pin'],
             press_callbacks=press_callbacks,
             hold_callback=hold_callback,
-            hold_time=entry.get('hold_time', 1)
+            hold_time=entry.get('hold_time', 1),
+            hold_repeat=entry.get('hold_repeat', False)
         ))
     return handlers

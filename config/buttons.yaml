@@ -24,3 +24,10 @@ buttons:
 # Each button is a GPIO pin + a `triggers` map keyed by press count or "hold". A count
 # with no entry is ignored. A trigger's value is a dotted path (or list of them, run in
 # order), resolved against tv/supervisor/utils.
+#
+# Optional `hold_repeat: true` makes the `hold` trigger fire repeatedly (every
+# `hold_time` seconds) for as long as the button stays held, instead of firing once --
+# e.g. for a press-and-hold volume ramp via utils.volume_up/utils.volume_down. Defaults
+# to false, so existing one-shot hold actions (rotate_input, standby+shutdown, etc.)
+# are unaffected. A short `hold_time` (e.g. 0.2) gives a snappier repeat cadence, since
+# it also doubles as the interval between repeats.

@@ -148,6 +148,19 @@ class Utils:
         if self.ha_client:
             self.ha_client.update_number("volume", volume)
 
+    def volume_up(self, step=5):
+        """Raise volume by `step` -- a single-press button action. Also the building
+        block for a repeat-while-held button (see buttons.yaml's `hold_repeat`)."""
+        current = self.get_volume()
+        if current is not None:
+            self.set_volume(current + step)
+
+    def volume_down(self, step=5):
+        """Lower volume by `step`; see volume_up()."""
+        current = self.get_volume()
+        if current is not None:
+            self.set_volume(current - step)
+
     def _watch_volume(self):
         """Push volume to HA when it changes outside of set_volume() -- e.g. from the
         Pi's own system tray/keyboard -- since that's the only other place volume can

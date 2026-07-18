@@ -13,6 +13,7 @@ This project includes features like **TV management**, **system monitoring**, an
 - **Home Assistant Integration**: Auto-discovery of devices and sensors for controlling and monitoring via MQTT.
 - **System Monitoring**: Track CPU temperature, memory usage, disk space, network IP address, etc.
 - **GPIO Button Control**: Use physical buttons for common actions (e.g., reboot, shutdown, update, switch apps).
+- **Volume Control**: A Home Assistant slider for the Pi's own audio output (CEC volume control isn't reliable enough on most TVs to be worth it), kept in sync even when changed from the Pi's own system tray.
 - **App Switching**: Toggle between Magic Mirror and Home Assistant interfaces.
 - **System Management**: Reboot, shutdown, update, and pull the latest repo changes via button press.
 
@@ -297,10 +298,21 @@ selects:
     unique_id: "default_app"
     options: "{{apps_all}}"
     callback: "set_default_app"
+
+numbers:
+  - name: "Volume"
+    unique_id: "volume"
+    state: "utils.get_volume"
+    callback: "utils.set_volume"
+    min: 0
+    max: 100
+    step: 1
+    mode: "slider"
 ```
 
 - **binary_sensors** / **sensors**: Report device/system state (TV power, IP address, CPU temperature, Pi/Supervisor uptime, etc.) back to Home Assistant. A sensor can optionally declare `attributes` — a map of attribute name to dotted method path, resolved the same way `state` is (see "Current App"'s `uptime` above). Attributes are set once at startup like `state`, and also re-resolved periodically for any that change over time (currently just Current App's `uptime`, refreshed every 30s by `Supervisor`) — see `HomeAssistantClient.refresh_sensor_attributes`.
 - **buttons**: Defines actions that buttons can trigger, such as reboot, shutdown, or starting an app. `args` is optional and lets a button call a method with a fixed argument (e.g. `supervisor.start_app("magicmirror2")`).
+- **numbers**: HA slider/box entities backed by a `state`/`callback` dotted-path pair, same resolution as everything else. The built-in "Volume" entity controls the Pi's own audio output level via `wpctl` (PipeWire) — see `Utils.get_volume`/`Utils.set_volume` — since CEC volume control isn't reliable enough on most TVs to bother with. It stays in sync even when volume is changed outside the app (e.g. the Pi's own system tray): `Utils` watches `pactl subscribe` in the background and pushes the real value to Home Assistant whenever it changes.
 - **selects**: HA dropdown entities. The "Default Startup App" select lets you change which app auto-starts at boot without editing `config.yaml`; the choice is persisted in `data/settings.yaml`. Its `options` can be `"{{apps_all}}"` to auto-populate from `apps.yaml` — shown as each app's display `name`, with a "No Startup App" option (and default) meaning "don't auto-start anything" — or a plain list of specific app keys (e.g. `["homeassistant_mirror_dashboard", "magicmirror2"]`) to hand-pick a subset instead. Either way, an optional `default_option` overrides the pre-selected choice; it must be the app's apps.yaml *key* (or `"No Startup App"`), not its display `name`. (The option is deliberately not called "None" — Home Assistant's MQTT integration treats that exact string as a reserved sentinel for "unknown" rather than a selectable value.) Note: unlike buttons/switches, a select's `callback` must be a plain `Supervisor` method name (e.g. `"set_tv_input"`), not a dotted path — selects don't support the `tv.`/`utils.` prefix form.
 - **"TV Input" select**: switches between the Pi and the other physical HDMI port (see `tv_inputs` in [config.yaml](#configconfigyaml)). Its options update live — the second option's name swaps automatically between the configured fallback (e.g. "HDMI 3") and whatever CEC-aware device is actually detected there (e.g. "Apple TV"), refreshed on the same background poll that keeps the "TV Current Input" sensor (which reports "Off" while the TV is off) accurate.
 
@@ -334,6 +346,8 @@ buttons:
 ```
 
 Each button has a `triggers` map keyed by press count (`1`, `2`, `3`, ...) or the literal `"hold"`. A press count with no entry is simply ignored, so double/triple-press support is already there — just add a `2:`/`3:` entry once you decide what it should do. A trigger's value is a dotted method path (e.g. `"tv.toggle_power"`), resolved the same way `entities.yaml` callbacks are, against the running `tv`/`supervisor`/`utils` instances — or a list of dotted paths to run in order (e.g. Button 1's hold: turn the TV off, then shut down). `hold_time` (seconds, default `1`) is how long the button must be held before it counts as a hold instead of a press.
+
+An optional `hold_repeat: true` makes the `hold` trigger fire repeatedly (every `hold_time` seconds) for as long as the button stays held, instead of just once — e.g. for a press-and-hold volume ramp via `utils.volume_up`/`utils.volume_down`. It defaults to `false`, so existing one-shot hold actions are unaffected; a short `hold_time` (e.g. `0.2`) gives a snappier repeat cadence, since it also doubles as the interval between repeats.
 
 ### **config/services.yaml**
 This file defines independent background services — things that should just run in the background (or be toggled on/off), as opposed to `apps.yaml`'s kiosk/MagicMirror entries, which are mutually exclusive (starting one stops whatever else is showing). UxPlay (AirPlay mirroring) is the built-in example, replacing what used to be its own systemd unit:
@@ -383,6 +397,7 @@ Unlike `apps.yaml` (where console output only goes to `logs/<name>-app.log`), a 
     - **Sensors**: Monitor system stats like IP address, CPU temperature, memory usage, and Pi/Supervisor uptime.
     - **Buttons**: Trigger actions like reboot, shutdown, or app switching.
     - **Selects**: Pick the default startup app, switch between running apps, or rotate the AirPlay orientation.
+    - **Numbers**: Adjust the Pi's audio output volume via a slider.
 
 3. **Control via Physical Buttons**:
 
@@ -432,4 +447,4 @@ magic-mirror-supervisor/
 - **`app/process_utils.py`**: The subprocess spawn (own process group, rotated log file) and terminate (SIGTERM then SIGKILL) logic shared by both `apps.py` and `services.py`.
 - **`app/home_assistant_client.py`**: Manages MQTT communication with Home Assistant, setting up sensors, buttons, switches, and selects.
 - **`app/settings_store.py`**: Persists small bits of runtime-changeable state (like the HA-selected default app) to `data/settings.yaml`, separate from the static `config/` files.
-- **`app/utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), network connectivity checks, and system actions (reboot, shutdown).
+- **`app/utils.py`**: Provides utility functions like system stats (CPU temperature, memory usage), network connectivity checks, system actions (reboot, shutdown), and volume control (`wpctl`-backed, with a background `pactl subscribe` watcher to catch changes made outside the app).
