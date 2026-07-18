@@ -1,7 +1,9 @@
 import psutil
 import logging
 import os
+import re
 import socket
+import subprocess
 import time
 
 logger = logging.getLogger(__name__)
@@ -22,13 +24,17 @@ def format_duration(seconds):
     return f"{seconds}s"
 
 
+VOLUME_SINK = "@DEFAULT_AUDIO_SINK@"  # PipeWire's alias for the system default output
+
+
 class Utils:
-    def __init__(self, config, secrets, supervisor, tv, buttons=None):
+    def __init__(self, config, secrets, supervisor, tv, buttons=None, ha_client=None):
         self.config = config
         self.secrets = secrets
         self.supervisor = supervisor
         self.tv = tv
         self.buttons = buttons or []
+        self.ha_client = ha_client
         self._start_time = time.monotonic()  # for the "Supervisor Uptime" sensor
 
         self.hw_info = self.get_hw_info()
@@ -97,6 +103,46 @@ class Utils:
 
     def get_disk_usage(self):
         return psutil.disk_usage('/').percent
+
+    def get_volume(self):
+        """Current system output volume (0-100), read via PipeWire's default sink.
+        CEC volume control isn't reliable enough on this TV to be worth wiring up, so
+        this controls the Pi's own output level instead -- the same sink Chromium,
+        MagicMirror, and pygame's sound effects all render through."""
+        try:
+            output = subprocess.run(
+                ["wpctl", "get-volume", VOLUME_SINK],
+                capture_output=True, text=True, timeout=5, check=True
+            ).stdout
+            match = re.search(r"Volume:\s*([\d.]+)", output)
+            if not match:
+                logger.warning(f"Could not parse wpctl get-volume output: {output!r}")
+                return None
+            return round(float(match.group(1)) * 100)
+        except Exception as e:
+            logger.warning(f"Failed to read volume via wpctl: {e}")
+            return None
+
+    def set_volume(self, value):
+        """Set system output volume (0-100) via PipeWire's default sink, then push the
+        (clamped) result back to HA so the slider reflects what was actually applied."""
+        try:
+            volume = max(0, min(100, round(float(value))))
+        except (TypeError, ValueError):
+            logger.warning(f"Ignoring invalid volume value: {value!r}")
+            return
+        try:
+            # "-l 1.0" caps wpctl's own overshoot allowance at 100%, since it otherwise
+            # permits boosting past that.
+            subprocess.run(
+                ["wpctl", "set-volume", "-l", "1.0", VOLUME_SINK, f"{volume}%"],
+                capture_output=True, timeout=5, check=True
+            )
+        except Exception as e:
+            logger.warning(f"Failed to set volume via wpctl: {e}")
+            return
+        if self.ha_client:
+            self.ha_client.update_number("volume", volume)
 
     def get_pi_uptime(self):
         """Time since the Pi itself booted, for the "Pi Uptime" sensor."""

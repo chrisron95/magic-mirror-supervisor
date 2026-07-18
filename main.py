@@ -145,6 +145,7 @@ def main():
         )
         supervisor.ha_client = ha_client  # Set ha_client in supervisor
         tv.ha_client = ha_client  # Set ha_client in TV
+        utils.ha_client = ha_client  # Set ha_client in Utils
         logger.info(f"HomeAssistantClient constructed ({time.monotonic() - step_start:.1f}s)")
 
         step_start = time.monotonic()

@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 import time
 import logging
 from ha_mqtt_discoverable import Settings, DeviceInfo
-from ha_mqtt_discoverable.sensors import BinarySensor, BinarySensorInfo, Button, ButtonInfo, Switch, SwitchInfo, Sensor, SensorInfo, Select, SelectInfo
+from ha_mqtt_discoverable.sensors import BinarySensor, BinarySensorInfo, Button, ButtonInfo, Switch, SwitchInfo, Sensor, SensorInfo, Select, SelectInfo, Number, NumberInfo
 from .supervisor import NONE_APP_OPTION, NO_APP_RUNNING
 
 logger = logging.getLogger(__name__)
@@ -116,6 +116,7 @@ class HomeAssistantClient:
         jobs = [(self._setup_button, button) for button in self.entities.get('buttons', [])]
         jobs += [(self._setup_switch, switch) for switch in self.entities.get('switches', [])]
         jobs += [(self._setup_select, select) for select in self.entities.get('selects', [])]
+        jobs += [(self._setup_number, number) for number in self.entities.get('numbers', [])]
         if jobs:
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(jobs)) as executor:
                 futures = [executor.submit(setup_fn, entity) for setup_fn, entity in jobs]
@@ -310,6 +311,59 @@ class HomeAssistantClient:
                 logger.error(f"Callback method not found: {e}")
         return callback
 
+    def _setup_number(self, number):
+        try:
+            number_info = NumberInfo(
+                name=number['name'],
+                device=self.device_info,
+                unique_id=number['unique_id'],
+                min=number.get('min', 0),
+                max=number.get('max', 100),
+                step=number.get('step', None),
+                mode=number.get('mode', None),           # "box" or "slider"
+                unit_of_measurement=number.get('unit_of_measurement', None),
+                icon=number.get('icon', None),
+                entity_category=number.get('entity_category', None), # https://developers.home-assistant.io/docs/core/entity/#generic-properties
+                enabled_by_default=number.get('enabled_by_default', None),
+                retain=number.get('retain', None),
+                expire_after=self.config.get('expire_after', None),
+                force_update=True
+            )
+            number_settings = Settings(mqtt=self.mqtt_settings, entity=number_info, manual_availability=True)
+            number_entity = Number(number_settings, self.create_number_callback(number['callback']))
+            number_entity.write_config()
+            number_entity.set_availability(True)
+            self._rebroadcast_availability_on_reconnect(number_entity)
+            setattr(self, f"{number['unique_id']}_entity", number_entity)
+
+            # Resolve and set the initial value
+            state_method = number.get('state')
+            state = None
+            if state_method:
+                try:
+                    state = self._resolve_dotted(state_method)()
+                except AttributeError as e:
+                    logger.error(f"Error resolving state method {state_method} for number {number['unique_id']}: {e}")
+            if state is not None:
+                number_entity.set_value(state)
+            else:
+                logger.warning(f"Number {number['unique_id']} state is None or could not be resolved")
+        except Exception as e:
+            logger.warning(f"Failed to set up number {number.get('unique_id')}: {e}")
+
+    def create_number_callback(self, method_name):
+        def callback(client, userdata, message):
+            try:
+                value = float(message.payload.decode())
+            except ValueError as e:
+                logger.error(f"Invalid value for number callback {method_name}: {e}")
+                return
+            try:
+                self._resolve_dotted(method_name)(value)
+            except AttributeError as e:
+                logger.error(f"Callback method not found: {e}")
+        return callback
+
     def setup_sensors(self):
         for sensor in self.entities['sensors']:
             try:
@@ -493,6 +547,13 @@ class HomeAssistantClient:
         select_entity._entity.options = options
         select_entity.write_config()
 
+    def update_number(self, unique_id, value):
+        number_entity = getattr(self, f"{unique_id}_entity", None)
+        if number_entity:
+            number_entity.set_value(value)
+        else:
+            logger.warning(f"Number with unique_id {unique_id} not found.")
+
     def update_switch(self, unique_id, state):
         switch = getattr(self, f"{unique_id}_entity", None)
         if switch:
@@ -507,7 +568,7 @@ class HomeAssistantClient:
         logger.info("Cleaning up Home Assistant client")
 
         # Publish "offline" availability for each entity
-        for entity_type in ['sensors', 'switches', 'buttons', 'binary_sensors', 'selects']:
+        for entity_type in ['sensors', 'switches', 'buttons', 'binary_sensors', 'selects', 'numbers']:
             if entity_type in self.entities:
                 for entity in self.entities[entity_type]:
                     unique_id = entity['unique_id']

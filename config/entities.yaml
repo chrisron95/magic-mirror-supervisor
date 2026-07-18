@@ -137,6 +137,20 @@ buttons:
     callback: "supervisor.refresh_kiosk"
     device_class: "restart"
 
+numbers:
+  - name: "Volume"
+    unique_id: "volume"
+    # CEC volume control isn't reliable enough on this TV to be worth it -- this
+    # controls the Pi's own PipeWire output level instead (see Utils.get_volume/set_volume).
+    state: "utils.get_volume"
+    callback: "utils.set_volume"
+    min: 0
+    max: 100
+    step: 1
+    mode: "slider"
+    unit_of_measurement: "%"
+    icon: "mdi:volume-high"
+
 switches:
   - name: "TV Power"
     unique_id: "tv_power_switch"
