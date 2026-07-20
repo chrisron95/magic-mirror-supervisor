@@ -198,7 +198,15 @@ callbacks, not driven from the main thread.
   via wvkbd's own man page and a live test of squeekboard (enabled via `raspi-config`) on this Pi,
   which didn't render above the kiosk at all. `EDITABLE_ROLES` mirrors the role set onboard's
   `AtspiAutoShow` checked (native widgets like `ENTRY`/`SPIN_BUTTON`/`COMBO_BOX` plus the web-content
-  roles Chromium exposes for `<input>`/`<textarea>`/contenteditable).
+  roles Chromium exposes for `<input>`/`<textarea>`/contenteditable). First real-hardware test
+  surfaced two more issues, both since addressed but not yet re-verified: wvkbd itself also didn't
+  render above the fullscreen `--kiosk` Chromium (only over windowed apps) even though it's confirmed
+  to default to the `overlay` layer — passing `--non-exclusive` (wvkbd requests an exclusive zone
+  reservation by default; `button_popup.py`'s fullscreen Mirror Mode overlay, which does reliably
+  render above this exact kiosk, explicitly sets `exclusive_zone = -1` instead) is the current fix
+  attempt. Typing also intermittently hid the keyboard mid-field — `KeyboardController` now debounces
+  hide by `HIDE_DELAY` so a real editable regaining focus (e.g. after a framework re-render on
+  keystroke) cancels a pending hide instead of flickering shut; show always wins immediately.
 
 - **`app/supervisor.py`** (`Supervisor`) — the app-switching/notification layer above `AppManager`:
   cycling apps, the desktop notify-send app picker, resolving/persisting the default startup app, and

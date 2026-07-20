@@ -11,12 +11,17 @@ import logging
 import signal
 import subprocess
 import sys
+import threading
 
 import pyatspi
 
 logger = logging.getLogger(__name__)
 
 KEYBOARD_HEIGHT = 200
+HIDE_DELAY = 0.3  # debounce before hiding: a text field losing AT-SPI focus during its
+                   # own re-render (e.g. one keystroke in the HA frontend) regains it
+                   # almost immediately, without necessarily re-firing a focus-gained
+                   # event, so hiding on the raw event flickers the keyboard shut
 
 # Roles onboard's AtspiAutoShow checked: native widgets (ENTRY, SPIN_BUTTON, COMBO_BOX)
 # plus web content roles Chromium exposes for <input>/<textarea>/contenteditable
@@ -42,15 +47,47 @@ def is_editable(source):
         return False
 
 
+class KeyboardController:
+    """Debounces hide so transient focus churn (e.g. mid-typing re-renders) doesn't
+    flicker the keyboard shut; show always wins immediately and cancels any pending hide."""
+
+    def __init__(self, wvkbd):
+        self.wvkbd = wvkbd
+        self._lock = threading.Lock()
+        self._hide_timer = None
+
+    def show(self):
+        with self._lock:
+            if self._hide_timer:
+                self._hide_timer.cancel()
+                self._hide_timer = None
+            self.wvkbd.send_signal(signal.SIGUSR2)
+
+    def hide(self):
+        with self._lock:
+            if self._hide_timer:
+                self._hide_timer.cancel()
+            self._hide_timer = threading.Timer(HIDE_DELAY, self._do_hide)
+            self._hide_timer.start()
+
+    def _do_hide(self):
+        with self._lock:
+            self._hide_timer = None
+        self.wvkbd.send_signal(signal.SIGUSR1)
+
+
 def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    wvkbd = subprocess.Popen(["wvkbd-mobintl", "--hidden", "-L", str(KEYBOARD_HEIGHT)])
+    wvkbd = subprocess.Popen(["wvkbd-mobintl", "--hidden", "--non-exclusive", "-L", str(KEYBOARD_HEIGHT)])
+    controller = KeyboardController(wvkbd)
 
     def on_focus(event):
         if event.detail1 != 1:
-            return  # only act on focus gained; a widget losing focus is always followed
-                    # by a gained event elsewhere, which decides show vs hide on its own
-        wvkbd.send_signal(signal.SIGUSR2 if is_editable(event.source) else signal.SIGUSR1)
+            return  # only act on focus gained; loss is handled by whatever gains it next
+        if is_editable(event.source):
+            controller.show()
+        else:
+            controller.hide()
 
     pyatspi.Registry.registerEventListener(on_focus, "object:state-changed:focused")
     try:
