@@ -183,8 +183,22 @@ callbacks, not driven from the main thread.
 
 - **`app/app_templates.py`** — built-in reusable app definitions (`TEMPLATES` dict). An `apps.yaml`
   entry with `app: "kiosk"` gets merged with `KIOSK(overrides)`'s base dict (Chromium flags, X11/DBus
-  env, singleton-lock cleanup, unclutter/onboard background processes, liveness check) before
-  `AppManager` resolves placeholders.
+  env, singleton-lock cleanup, unclutter background process, liveness check) before `AppManager`
+  resolves placeholders. Its `DBUS_SESSION_BUS_ADDRESS` override exposes Chromium's own AT-SPI
+  accessibility tree on the shared session bus — needed by the `onscreen_keyboard` service (below),
+  not by anything in this file itself.
+
+- **`app/keyboard_watcher.py`** — on-screen keyboard, run as the `onscreen_keyboard` service
+  (`services.yaml`). Owns a `wvkbd-mobintl --hidden` process and drives its show/hide via
+  `SIGUSR2`/`SIGUSR1` in response to AT-SPI `object:state-changed:focused` events read off the
+  session D-Bus bus — the same mechanism the old `onboard` used, which this replaces since onboard's
+  X11 toplevel windows fought for focus with windowed apps under labwc. Neither wvkbd's nor
+  squeekboard's own `--auto` flag works here: both need `zwp_input_method_v2` fed by the focused
+  client's `text-input-v3` implementation, which XWayland-hosted Chromium doesn't speak — confirmed
+  via wvkbd's own man page and a live test of squeekboard (enabled via `raspi-config`) on this Pi,
+  which didn't render above the kiosk at all. `EDITABLE_ROLES` mirrors the role set onboard's
+  `AtspiAutoShow` checked (native widgets like `ENTRY`/`SPIN_BUTTON`/`COMBO_BOX` plus the web-content
+  roles Chromium exposes for `<input>`/`<textarea>`/contenteditable).
 
 - **`app/supervisor.py`** (`Supervisor`) — the app-switching/notification layer above `AppManager`:
   cycling apps, the desktop notify-send app picker, resolving/persisting the default startup app, and

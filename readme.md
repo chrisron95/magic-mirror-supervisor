@@ -107,6 +107,7 @@ Before getting started, please ensure the following are already set up:
   - Launch it yourself instead — add `mako &` to `~/.config/labwc/autostart` (make sure that file is executable: `chmod +x`)
   - In `~/.config/mako/config`, set `layer=overlay` (so notifications render above the fullscreen kiosk) and a `default-timeout` (so they auto-dismiss) — mako's own defaults do neither
 - **wtype**: Sends the F5 keypress for the "Refresh Kiosk" button (`Supervisor.refresh_kiosk`). Install with `sudo apt install wtype`.
+- **wvkbd + python3-pyatspi**: On-screen keyboard for the kiosk apps, backed by the `onscreen_keyboard` service (`app/keyboard_watcher.py`). Install with `sudo apt install wvkbd python3-pyatspi`. Replaces `onboard`, which doesn't work under labwc (X11 toplevel windows fight for focus with windowed apps) — `onboard` no longer needs to be installed.
 
 ---
 

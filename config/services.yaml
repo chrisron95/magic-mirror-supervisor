@@ -18,6 +18,15 @@ services:
       echo '{"cancel_label": "Exit Mirror Mode", "fullscreen": true}' | python3 app/button_popup.py
     restart: false
 
+  onscreen_keyboard:
+    name: "On-Screen Keyboard"
+    environment:
+      # Same session bus onboard used to see Chromium's AT-SPI focus events.
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{uid}}/bus"
+    command: "python3 app/keyboard_watcher.py"
+    restart: true
+    autostart: true
+
 # Unlike apps.yaml, any number of these can run at once alongside whatever app is
 # showing. Same fields as a directly-defined apps.yaml entry, plus `autostart: true`.
 # Wire a service to a switch in entities.yaml via a start/stop/is_running trio on

@@ -23,8 +23,8 @@ def KIOSK(overrides):
             "DISPLAY": ":0.0",
             "XAUTHORITY": "{{user_home}}/.Xauthority",
             # Share the real desktop session's D-Bus bus (rather than each process guessing/
-            # creating its own) so onboard's AT-SPI focus listener actually sees Chromium's
-            # focus events and auto-shows the on-screen keyboard.
+            # creating its own) so Chromium's own AT-SPI tree is visible to the
+            # onscreen_keyboard service's focus listener (see services.yaml).
             "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/{{uid}}/bus",
         },
         "setup": [
@@ -40,7 +40,6 @@ def KIOSK(overrides):
         ],
         "background": [
             "unclutter -idle 0.5 -root",
-            "/usr/bin/onboard",
         ],
         "command": (
             "/usr/bin/chromium-browser --noerrdialogs --disable-infobars "
