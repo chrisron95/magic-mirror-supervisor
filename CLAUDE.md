@@ -198,15 +198,26 @@ callbacks, not driven from the main thread.
   via wvkbd's own man page and a live test of squeekboard (enabled via `raspi-config`) on this Pi,
   which didn't render above the kiosk at all. `EDITABLE_ROLES` mirrors the role set onboard's
   `AtspiAutoShow` checked (native widgets like `ENTRY`/`SPIN_BUTTON`/`COMBO_BOX` plus the web-content
-  roles Chromium exposes for `<input>`/`<textarea>`/contenteditable). First real-hardware test
-  surfaced two more issues, both since addressed but not yet re-verified: wvkbd itself also didn't
-  render above the fullscreen `--kiosk` Chromium (only over windowed apps) even though it's confirmed
-  to default to the `overlay` layer — passing `--non-exclusive` (wvkbd requests an exclusive zone
-  reservation by default; `button_popup.py`'s fullscreen Mirror Mode overlay, which does reliably
-  render above this exact kiosk, explicitly sets `exclusive_zone = -1` instead) is the current fix
-  attempt. Typing also intermittently hid the keyboard mid-field — `KeyboardController` now debounces
-  hide by `HIDE_DELAY` so a real editable regaining focus (e.g. after a framework re-render on
-  keystroke) cancels a pending hide instead of flickering shut; show always wins immediately.
+  roles Chromium exposes for `<input>`/`<textarea>`/contenteditable). Real-hardware testing
+  surfaced two more issues. First, typing intermittently hid the keyboard mid-field —
+  `KeyboardController` now debounces hide by `HIDE_DELAY` so a real editable regaining focus (e.g.
+  after a framework re-render on keystroke) cancels a pending hide instead of flickering shut; show
+  always wins immediately. Second, and still open: wvkbd itself doesn't render above the fullscreen
+  `--kiosk` Chromium (only over windowed apps). Root cause confirmed by reading the actual shipped
+  source, not just the man page: Debian bookworm's packaged wvkbd is 0.12, three years behind
+  upstream's 0.15, and 0.12 hardcodes `ZWLR_LAYER_SHELL_V1_LAYER_TOP` — not `overlay` as current
+  GitHub HEAD does — with no CLI flag to override it (confirmed at sources.debian.org/src/wvkbd/0.12-1/main.c).
+  Same bug class that ruled out squeekboard: `top` renders below a fullscreen surface, only `overlay`
+  shows above it. 0.12 also predates the `--non-exclusive` flag (passing it errors out and silently
+  breaks the service — see the `exit_if_wvkbd_dies` note below). Fixing this for real needs a newer
+  wvkbd binary (building upstream from source, or patching 0.12's one hardcoded constant and
+  rebuilding) — deliberately not done yet; user chose to defer that decision rather than pick an
+  approach mid-session. `exit_if_wvkbd_dies` (a daemon thread joined on the `wvkbd` subprocess) exists
+  because without it, a dead/crashed wvkbd (e.g. from an unsupported CLI flag) left this process
+  running a useless AT-SPI listener while `ServiceManager` still considered `onscreen_keyboard`
+  healthy — it now calls `pyatspi.Registry.stop()` to unblock `main()` and let the process exit, so
+  `ServiceManager`'s normal restart path takes over. Safe to call `Registry.stop()` from a non-`start()`
+  thread since it just wraps `GLib.MainLoop.quit()`, which is documented thread-safe.
 
 - **`app/supervisor.py`** (`Supervisor`) — the app-switching/notification layer above `AppManager`:
   cycling apps, the desktop notify-send app picker, resolving/persisting the default startup app, and

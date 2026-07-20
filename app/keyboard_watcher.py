@@ -78,7 +78,10 @@ class KeyboardController:
 
 def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    wvkbd = subprocess.Popen(["wvkbd-mobintl", "--hidden", "--non-exclusive", "-L", str(KEYBOARD_HEIGHT)])
+    # Debian's packaged wvkbd (0.12) doesn't support --non-exclusive; it also hardcodes
+    # the "top" layer rather than "overlay" (confirmed in its shipped source), which is
+    # why it doesn't render above the fullscreen kiosk yet.
+    wvkbd = subprocess.Popen(["wvkbd-mobintl", "--hidden", "-L", str(KEYBOARD_HEIGHT)])
     controller = KeyboardController(wvkbd)
 
     def on_focus(event):
@@ -88,6 +91,15 @@ def main():
             controller.show()
         else:
             controller.hide()
+
+    def exit_if_wvkbd_dies():
+        # Without this, a dead wvkbd (crash, bad arg) leaves this process running a
+        # useless AT-SPI listener that ServiceManager still thinks is a healthy service.
+        wvkbd.wait()
+        logger.warning(f"wvkbd-mobintl exited (code {wvkbd.returncode}); exiting so the service restarts")
+        pyatspi.Registry.stop()
+
+    threading.Thread(target=exit_if_wvkbd_dies, daemon=True).start()
 
     pyatspi.Registry.registerEventListener(on_focus, "object:state-changed:focused")
     try:
