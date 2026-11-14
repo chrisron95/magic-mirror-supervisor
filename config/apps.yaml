@@ -4,6 +4,11 @@ apps:
     name: "Home Assistant Mirror Dashboard"
     url: "{{secrets.ha_url}}/dashboard-magicmirror/dashboard"
 
+  homeassistant_mirror_dashboard_new:
+    app: "kiosk"
+    name: "Home Assistant Mirror Dashboard New"
+    url: "{{secrets.ha_url}}/dashboard-mirror/home"
+
   google_kiosk:
     app: "kiosk"
     name: "Google Kiosk"
